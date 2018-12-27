@@ -468,10 +468,11 @@ class wCDM(LCDM):
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
         self.Ob0h2 = np.float64(Ob0*h**2)
+        self.Omega_r = self.Omega_r0
 
 
     def hubz(self,z):
-        return np.sqrt(self.Om0*(1.+z)**3.+self.Omega_r*(1+z)**4+self.OmK*(1+z)**2
+        return np.sqrt(self.Om0*(1.+z)**3.+self.Omega_r*(1+z)**4+self.OmK*(1+z)**2+
                        (1.-self.Om0-self.Omega_r-self.OmK)*(1.0+z)**(3.0*(1+self.w)))
 
     def wz(self,z):

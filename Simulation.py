@@ -20,11 +20,11 @@ c0=c
 Generate the simulated data, including QSO, Strong lens (LSST .etc), SNIa
 '''
 class gen_QSO(object):
-    def __init__(self,number,L=11.03,L_err=0.0,err_ran=0.03,Omegam=0.3,h=0.7,random_err=True,endpoint=False):
+    def __init__(self,number,L=11.03,L_err=0.0,theta_err=0.03,Omegam=0.3,h=0.7,random_err=True,endpoint=False):
         self.num=number
         self.L=np.float64(L)
         self.L_s = np.float64(L_err)
-        self.err_ran=np.float64(err_ran)
+        self.theta_err=np.float64(theta_err)
         self.h = np.float64(h)
         self.ll = LCDM(Omegam,h)
         self.random_err = random_err
@@ -85,7 +85,7 @@ class gen_QSO(object):
     def theta(self):
         qzz=self.qz()
         theta_th=self._theta(self.L,self.qz())
-        theta_s=theta_th*self.err_ran
+        theta_s=theta_th*self.theta_err
         if self.random_err:
             theta_obs=np.random.normal(theta_th,theta_s)
         else:
@@ -95,7 +95,7 @@ class gen_QSO(object):
     def DA(self):
         qzz,the_th,the_s=self.theta()
         Da=self.L*1e-3/(the_th*arcsec)
-        sig_Da=Da*np.sqrt((self.L_s/self.L)**2+self.err_ran**2)
+        sig_Da=Da*np.sqrt((self.L_s)**2+self.theta_err**2)
         return qzz,Da,sig_Da
     
     def DA_th(self):

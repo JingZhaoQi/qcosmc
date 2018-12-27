@@ -86,8 +86,28 @@ class MCMC_class(object):
                 else:
                     print('输入错误，重新输入')
 
+    def Rc(self,chains,nwalkers):
+        R_c = np.linspace(0, 1, chains.shape[-1])
+        print('-'*40)
+        for i in range(chains.shape[-1]):
+            para = chains[:,i]
+            para_reshape = para.reshape((-1,nwalkers))
+            para_reshape = para_reshape[para_reshape.shape[0]//2:para_reshape.shape[0],:]   # the second half of each chain is used to check the convergence state
+            walker_mean = np.mean(para_reshape, axis=0, keepdims=True) # mean of each walker
+            var_mean = np.var(walker_mean)                             # variance between each walker
+            walker_var = np.var(para_reshape, axis=0, keepdims=True)   # variance of each walker
+            mean_var = np.mean(walker_var)
+            
+           # sample from one walker ==> one chain
+           # For multiple (nwalkers) chains  the code computes the Gelman and Rubin "R statistic"
+           # Please See Page 38 of "eprint arXiv:0712.3028" for the definitions of "R statistic"
+           
+            R_c[i] = (mean_var*(1.0-2.0/para_reshape.shape[0])+var_mean*(1.0+1.0/nwalkers))/mean_var 
+            print('R[%s]-1='%i+'%s'%abs(R_c[i]-1))
+        return R_c
+
     @timer
-    def MCMC(self,nbc=1e-4):
+    def MCMC(self,steps=1000,nwalkers=100):
         print ('\n'+'=======================================================')
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
@@ -98,13 +118,13 @@ class MCMC_class(object):
         self._check_err(self.params_all['fit'][0],self.theta_fit[0])
         
         # Set up the sampler.
-        ndim, nwalkers = self.n, 100
-        pos = [result['x'] + nbc*np.random.randn(ndim) for i in range(nwalkers)]
+        ndim= self.n
+        pos = [result['x'] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
         sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp)
         #print pos
         # Clear and run the production chain.
         print("Running MCMC...")
-        sampler.run_mcmc(pos, 500)
+        sampler.run_mcmc(pos, steps)
         print("Done.")
         
         chains_dir='./chains/'
@@ -114,14 +134,15 @@ class MCMC_class(object):
         savefile_name='./chains/'+self.Chains_name+'.npy'
         burnin = 50
         samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
-        
+        self.Rc(samples,nwalkers)
         vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
         self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
 #        self.theta_fact=0.0
         self.minkaf=self.chi2(self.theta_fit)
         self.samples=samples
+        ranges=list(zip(self.params_all['lower'],self.params_all['upper']))
         
-        np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num))
+        np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num,ranges))
         print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
 
     def check(self,*arg):
