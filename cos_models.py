@@ -359,8 +359,6 @@ class LCDM(object):
     """
     end statefinder
     """
-#================I cann't understand=====================================================
-
 
     a11 = np.linspace(0.001,1,1000)
 

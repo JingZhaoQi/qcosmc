@@ -107,7 +107,7 @@ class MCMC_class(object):
         return R_c
 
     @timer
-    def MCMC(self,steps=1000,nwalkers=100):
+    def MCMC(self,steps=500,nwalkers=100):
         print ('\n'+'=======================================================')
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
