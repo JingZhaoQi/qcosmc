@@ -949,7 +949,7 @@ class RDE(LCDM):
         self.Ob0h2 = np.float64(Ob0*self.h**2)
 
     def hubz(self,z):
-        Ez1=2*self.Om0/(2-self.r)*(1+z)**3+self.Omega_r*(1+4)**4
+        Ez1=2*self.Om0/(2-self.r)*(1+z)**3+self.Omega_r*(1+z)**4
         Ez2=(1-self.Omega_r-2*self.Om0/(2-self.r))*(1+z)**(4-2/self.r)
         return np.sqrt(Ez1+Ez2)
 
