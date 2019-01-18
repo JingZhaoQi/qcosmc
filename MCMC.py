@@ -73,7 +73,7 @@ class MCMC_class(object):
                     print('出现这个问题的原因通常是X^2_min值太大或者太小')
                     print('所以检查你的参数输入范围和中心值是否合理')
                     print('如果没问题，检查X^2值，看是否和你用的数据点查了好几个数量级，就下面这个值')
-                    print('%s=%s'%(self.chi2.func_name,self.chi2(self.params_all['fit'])))
+                    print('%s=%s'%(self.chi2.__name__,self.chi2(self.params_all['fit'])))
                     print('如果差了好几个数量级，那就是你chi2程序有问题。')
                     print('中断程序按\'b\'，继续跑按\'c\'')
                     p2=input()
@@ -147,6 +147,6 @@ class MCMC_class(object):
 
     def check(self,*arg):
         if arg:
-            print('%s=%s'%(self.chi2.func_name,self.chi2(arg)))
+            print('%s=%s'%(self.chi2.__name__,self.chi2(arg)))
         else:
-            print('%s=%s'%(self.chi2.func_name,self.chi2(self.params_all['fit'])))
+            print('%s=%s'%(self.chi2.__name__,self.chi2(self.params_all['fit'])))

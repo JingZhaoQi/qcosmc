@@ -226,12 +226,11 @@ def GP_plot(z,Da,sig,rec,xlabel,ylabel,fig_name=None,text_style=False,xlim=None,
 
 def GP_p(rec,label=''):
     fc='#b0a4e2'
-    plt.fill_between(rec[ 0], rec[1] + 2*rec[2], rec[1] - 2*rec[2],
-                         facecolor=fc,lw=0,alpha=0.5)
-    plt.fill_between(rec[0], rec[1] + rec[2], rec[1] - rec[2],
+    plt.fill_between(rec[:, 0], rec[:, 1] + rec[:, 2], rec[:, 1] - rec[:, 2],
                          facecolor=fc,lw=0,alpha=1,label=label)
-
-    plt.plot(rec[0], rec[1],'-',color='#c83c23')      
+    plt.fill_between(rec[:, 0], rec[:, 1] + 2*rec[:, 2], rec[:, 1] - 2*rec[:, 2],
+                         facecolor=fc,lw=0,alpha=0.5)
+    plt.plot(rec[:, 0], rec[:, 1],'-',color='#c83c23')      
 
 #-------------------------------------------------------------------------------------------
 def reconstruction(re_func,p,pu,pd,z):

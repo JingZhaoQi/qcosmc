@@ -152,7 +152,7 @@ class gen_QSO(object):
 
 class gen_SGL(object):
     def __init__(self,filename,thetaE_sig=0.01,sig_vv_sig=0.05,TD_sig=0.05,
-                 middle_mass=True,Omegam=0.3,h=0.7,random=True,Accuracy=0.2,
+                 middle_mass=True,Omegam=0.308,h=0.678,random=True,Accuracy=0.2,
                  standardisable=True):
         self.filename = filename
         self.ll = LCDM(Omegam,h)
@@ -212,7 +212,7 @@ class gen_SGL(object):
                 while not list(c1):
                     c1=np.where(abs(qzs[i]-self.sgl[:,1])<=errp)[0]
                     errp=errp+err/5.0
-                print('[%s] Matching redshift error is %s'%(i,errp))
+#                print('[%s] Matching redshift error is %s'%(i,errp))
                 sgln.append(np.random.choice(c1))
                 qn.append(i)
             self.index=sgln
@@ -306,9 +306,9 @@ class gen_SGL(object):
         ys=self.sgl[sgln,10]
         beta=np.sqrt(xs**2+ys**2)
         
-        Dl=np.vectorize(self.ll.ang_dis_z)(zl)
-        Ds=np.vectorize(self.ll.ang_dis_z)(zs)
-        Dls=np.vectorize(self.ll.ang_dis_z2)(zl,zs)
+        Dl=self.ll.ang_dis_z(zl)
+        Ds=self.ll.ang_dis_z(zs)
+        Dls=self.ll.ang_dis_z2(zl,zs)
         Dt=Dl*Ds/Dls
         
         thetaA=(thetaE+beta)*arcsec
@@ -458,7 +458,7 @@ class gen_SNIa(object):
         addn=0
         bins=np.arange(0.1,1.8,0.1)
         while true_n<number:
-            fb=map(int,map(round,(number+addn)*ratio))
+            fb=list(map(int,map(round,(number+addn)*ratio)))
             true_n=sum(fb)
             addn=addn+1
         zzn=[]
