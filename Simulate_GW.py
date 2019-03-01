@@ -22,18 +22,29 @@ b1,b2,b3,b4,b5,b6=31.18,-64.72,52.24,-42.16,10.17,11.53
 c1,c2,c3,c4=13.58,-36.46,18.56,27.43
 f_lower=1.0
 #-------------------------------------------------------------
-def Sh(f):
-    x=f/f0
-    fz=1+b1*x+b2*x**2+b3*x**3+b4*x**4+b5*x**5+b6*x**6
-    fm=1+c1*x+c2*x**2+c3*x**3+c4*x**4
-    return S0*(x**p1+a1*x**p2+a2*fz/fm)
 
-Nint=lambda f:f**(-7/3)/Sh(f)
-Nconst=quad(Nint,f_lower,2000)[0]
 #==============================================================
 class ET(object):
-    def __init__(self,Om0=0.308,h=0.678):
+    def __init__(self,Om0=0.308,h=0.678,GW_type='BHNS'):
         self.ll=LCDM(Om0,h)
+        self._GW_type=GW_type
+        self._gw_choice()
+    
+    def _gw_choice(self):
+        if self._GW_type=='BHNS':
+            self._m1_range=[1,2]
+            self._m2_range=[3,10]
+            self.z_max=5
+        elif self._GW_type=='NSNS':
+            self._m1_range=[1,2]
+            self._m2_range=[1,2]
+            self.z_max=2
+        elif self._GW_type=='BHBH':
+            self._m1_range=[3,10]
+            self._m2_range=[3,10]
+            self.z_max=5
+        else:
+            raise NameError('The type of GW your choice is wrong!')
 
 #=====================================================
 
@@ -73,14 +84,23 @@ class ET(object):
         a=(1+np.cos(theta)**2)*np.cos(2*(phi+4*np.pi/3))*np.sin(2*psi)/2.0
         b=np.cos(theta)*np.sin(2*(phi+4*np.pi/3))*np.cos(2*psi)
         return np.sqrt(3)/2.0*(a+b)
+    @staticmethod
+    def Sh(f):
+        x=f/f0
+        fz=1+b1*x+b2*x**2+b3*x**3+b4*x**4+b5*x**5+b6*x**6
+        fm=1+c1*x+c2*x**2+c3*x**3+c4*x**4
+        return S0*(x**p1+a1*x**p2+a2*fz/fm)
+    
+    def Int_sh(self,f):
+        return f**(-7/3)/self.Sh(f)
 
 # =============================================================================
 #=============================================================================
     def __snr(self,z):
         rho=0.0
         while rho<=8.0:
-            m1=np.random.uniform(1,2)*Msun
-            m2=np.random.uniform(3,10)*Msun
+            m1=np.random.uniform(self._m1_range[0],self._m1_range[1])*Msun
+            m2=np.random.uniform(self._m2_range[0],self._m2_range[1])*Msun
             M=m1+m2
             eta=m1*m2/M**2
             Mc_phys=M*eta**(3.0/5.0)
@@ -89,16 +109,22 @@ class ET(object):
             phi=np.random.uniform(0,2*np.pi)
             iota=0.0
             psi=np.pi/4
+            M_obs=(1+z)*(m1+m2)
+            f_upper=2/np.power(6,1.5)/2/np.pi/M_obs/sc.G*sc.c**3
             A1=np.sqrt(self.F1plus(theta,phi,psi)**2*(1+np.cos(iota)**2)**2+4*self.F1mul(theta,phi,psi)**2*
-                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc
+                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc*\
+                       np.power(sc.G,5/6)*np.power(sc.c,-1.5)
             A2=np.sqrt(self.F2plus(theta,phi,psi)**2*(1+np.cos(iota)**2)**2+4*self.F2mul(theta,phi,psi)**2*
-                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc
+                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc*\
+                       np.power(sc.G,5/6)*np.power(sc.c,-1.5)
             A3=np.sqrt(self.F3plus(theta,phi,psi)**2*(1+np.cos(iota)**2)**2+4*self.F3mul(theta,phi,psi)**2*
-                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc
-            ET1=2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*A1**2*Nconst)
-            ET2=2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*A2**2*Nconst)
-            ET3=2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*A3**2*Nconst)
-            rho=np.sqrt(ET1**2+ET2**2+ET3**2)
+                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc*\
+                       np.power(sc.G,5/6)*np.power(sc.c,-1.5)
+            ET1=4*quad(self.Int_sh,f_lower,f_upper)[0]*A1**2
+#            ET1=2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*A1**2*Nconst)
+            ET2=4*quad(self.Int_sh,f_lower,f_upper)[0]*A2**2
+            ET3=4*quad(self.Int_sh,f_lower,f_upper)[0]*A3**2
+            rho=np.sqrt(ET1+ET2+ET3)
 #        self.count+=1
 #        print(self.count)
         return z,m1/Msun,m2/Msun,theta,phi,rho
@@ -134,7 +160,7 @@ class ET(object):
 
     def ET_default(self,zlow=0,zup=5,num=1000,rand='normal'):
 #        self.count=0
-        zzn=zzn=FunctionDistribution(self.Pz,zlow,zup,num*2).rvs(num)
+        zzn=FunctionDistribution(self.Pz,zlow,zup,num*2).rvs(num)
         DL_mean,DL_err = self.ET_z(zzn,rand)
         return zzn,DL_mean,DL_err
 
