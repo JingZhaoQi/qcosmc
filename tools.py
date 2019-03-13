@@ -114,6 +114,22 @@ def redshift_match(z,target_z,error):
             tn=list(np.random.choice(c1[0],1))
             tar_zn.append(tn[0])
     return zn,tar_zn
+
+def redshift_match_SGL(zl,zs,qz,err=5e-3):
+    sgln=[]
+    qzln=[]
+    qzsn=[]
+    nn=len(zl)
+    for i in range(nn):
+        nzl=np.where(abs(zl[i]-qz)<=err)[0]
+        nzs=np.where(abs(zs[i]-qz)<=err)[0]
+        if len(nzl)>=1: nzl=np.random.choice(nzl)
+        if len(nzs)>=1: nzs=np.random.choice(nzs)
+        if nzl.any() and nzs.any():
+            sgln.append(i)
+            qzln.append(nzl)
+            qzsn.append(nzs)
+    return sgln,qzln,qzsn
     
 
 def random_fun(funn,xmin,xmax,number,bin_with,fig=False,**kwargs):
