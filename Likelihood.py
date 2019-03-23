@@ -140,8 +140,8 @@ class likelihood(object):
     def chi2(self,theta):
         return self.JLA2(theta)+self.SN2(theta)+self.OHD2(theta)
     
-    def MCMC(self,chain_name):
+    def MCMC(self,chain_name,steps=500):
         print ('\n'+'='*60)
         print(self.infor[:-1])
         MC=MCMC_class(self.param,self.chi2,chain_name,self.data_num)
-        MC.MCMC()
+        MC.MCMC(steps)

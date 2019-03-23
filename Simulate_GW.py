@@ -5,7 +5,7 @@ Created on Sat Sep 29 15:23:05 2018
 @author: qijingzhao
 """
 import numpy as np
-from .cos_models import LCDM
+from .cos_models import *
 from scipy.integrate import quad
 import scipy.constants as sc
 import scipy.stats as stats
@@ -25,8 +25,8 @@ f_lower=1.0
 
 #==============================================================
 class ET(object):
-    def __init__(self,Om0=0.308,h=0.678,GW_type='BHNS'):
-        self.ll=LCDM(Om0,h)
+    def __init__(self,model_name='LCDM', params=[0.308,0.678],GW_type='BHNS'):
+        self.ll=globals().get('%s'%model_name)(*params)
         self._GW_type=GW_type
         self._gw_choice()
     
@@ -44,7 +44,8 @@ class ET(object):
             self._m2_range=[3,10]
             self.z_max=5
         else:
-            raise NameError('The type of GW your choice is wrong!')
+            raise NameError('The type of GW your choice is wrong!\n\n\
+        Please choose from ["BHNS","NSNS","BHBH"]')
 
 #=====================================================
 
@@ -160,6 +161,7 @@ class ET(object):
 
     def ET_default(self,zlow=0,zup=5,num=1000,rand='normal'):
 #        self.count=0
+        if zup>self.z_max: zup=self.z_max
         zzn=FunctionDistribution(self.Pz,zlow,zup,num*2).rvs(num)
         DL_mean,DL_err = self.ET_z(zzn,rand)
         return zzn,DL_mean,DL_err
@@ -197,13 +199,13 @@ class ET(object):
             print('Please run the GW_z function firstly!')
     
 class Ligo(object):
-    def __init__(self,Gam,Lam,Om0,h,kesi=np.pi/2,psi=np.pi/4,iota=0):
+    def __init__(self,Gam,Lam,ll,kesi=np.pi/2,psi=np.pi/4,iota=0):
         self.Gam = Gam
         self.Lam = Lam
         self.kesi = kesi
         self.psi = psi
         self.iota = iota
-        self.ll=LCDM(Om0,h)
+        self.ll=ll
         
     def at(self,alpha,delta,ang):
         Gam,Lam = self.Gam,self.Lam
@@ -256,13 +258,13 @@ class Ligo(object):
         return 2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*self.AA(alpha,delta,ang,Mc_obs,z)**2*self.Ncont())
 
 class Virgo(Ligo):
-    def __init__(self,Gam,Lam,Om0,h,kesi=np.pi/2,psi=np.pi/4,iota=0):
+    def __init__(self,Gam,Lam,ll,kesi=np.pi/2,psi=np.pi/4,iota=0):
         self.Gam = Gam
         self.Lam = Lam
         self.psi = psi
         self.kesi = kesi
         self.iota = iota
-        self.ll=LCDM(Om0,h)
+        self.ll=ll
     
     @staticmethod
     def Sh(f):
@@ -274,29 +276,45 @@ class Virgo(Ligo):
         return S0*c
 
 class LgVg(object):
-    def __init__(self,Om0=0.308,h=0.678,m1_rang=[3,100],m2_rang=[3,100]):
-        self.Om0 = Om0
-        self.h = h
-        self.m1_rang = m1_rang
-        self.m2_rang = m2_rang
-        self.ll = LCDM(Om0,h)
+    def __init__(self,model_name='LCDM', params=[0.308,0.678],m1_range=[3,100],m2_range=[3,100]):
+        self.ll=globals().get('%s'%model_name)(*params)
+#        self._GW_type=GW_type
+#        self._gw_choice()
+        self.model_name=model_name
+        self.params=params
+        self._m1_range=m1_range
+        self._m2_range=m2_range
+    
+#    def _gw_choice(self):
+#        if self._GW_type=='BHNS':
+#            self._m1_range=[1,2]
+#            self._m2_range=[3,10]
+#        elif self._GW_type=='NSNS':
+#            self._m1_range=[1,2]
+#            self._m2_range=[1,2]
+#        elif self._GW_type=='BHBH':
+#            self._m1_range=[3,10]
+#            self._m2_range=[3,10]
+#        else:
+#            raise NameError('The type of GW your choice is wrong!\n\n\
+#        Please choose from ["BHNS","NSNS","BHBH"]')
 # =============================================================================
 #=============================================================================
     def __snr(self,z):
-        H1=Ligo(171.8*np.pi/180,46.45*np.pi/180,Om0=self.Om0,h=self.h)
+        H1=Ligo(171.8*np.pi/180,46.45*np.pi/180,self.ll)
         H1longitude = (119+24/60+27.6/60**2)*np.pi/180
         
-        L1=Ligo(243*np.pi/180,30.56*np.pi/180,Om0=self.Om0,h=self.h)
+        L1=Ligo(243*np.pi/180,30.56*np.pi/180,self.ll)
         L1longitude = (90+46/60+27.3/60**2)*np.pi/180
         
-        V1=Virgo(116.5*np.pi/180,43.63*np.pi/180,Om0=self.Om0,h=self.h)
+        V1=Virgo(116.5*np.pi/180,43.63*np.pi/180,self.ll)
         V1longitude = (10+30/60+16/60**2)*np.pi/180
         
         snrH1,snrL1,snrV1=0.0,0.0,0.0
         mr=0
         while snrH1<=8.0 or snrL1<=8.0 or snrV1<=8.0 or mr<0.5 or mr>2:
-            m1=np.random.uniform(self.m1_rang[0],self.m1_rang[1])*Msun
-            m2=np.random.uniform(self.m2_rang[0],self.m2_rang[1])*Msun
+            m1=np.random.uniform(self._m1_range[0],self._m1_range[1])*Msun
+            m2=np.random.uniform(self._m2_range[0],self._m2_range[1])*Msun
             M=m1+m2
             eta=m1*m2/M**2
             Mc_phys=M*eta**(3.0/5.0)
@@ -389,60 +407,60 @@ class LgVg(object):
         return zzn,DL,DL_s
 
 
-class LISA(object):
-    
-    def __init__(self,Omegam=0.3,h=0.7,random=True):
-        self.ll=LCDM(Omegam,h)
-        self.H0 = h*1e2
-        self.Hz=self.ll.hubz
-        self.dc=self.ll.d_z
-        self.dlz=np.vectorize(self.ll.lum_dis_z)
-        self.random = random
-#        self.DL_err = DL_err
-    
-    def redshift_distribution(self,number):
-        Ngw=np.asarray([3.6,10.3,9.3,7.5,4.7,2.8,1.2,0.4,0.2,0.0])
-        ratio=Ngw/np.sum(Ngw)
-        true_n=number-1
-        addn=0
-        bins=np.arange(0,11,1)
-        while true_n<number:
-            fb=map(int,map(round,(number+addn)*ratio*100))
-            true_n=sum(fb)
-            addn=addn+1
-        zzn=np.random.uniform(0.31,bins[1],fb[0])
-        for i in range(1,len(bins)-1):
-            zn=np.random.uniform(bins[i],bins[i+1],fb[i])
-#            print(zn,i)
-            zzn=np.append(zzn,zn)
-#        if self.endpoint:
-#            zzn=np.append(zzn,[0.5,6])
-        redshift=np.random.choice(zzn,number,replace=False)
-        return np.sort(redshift)
-    
-    def DL(self,z):
-        return self.dlz(z)
-    
-    def DL_s(self,z):
-        lens=self.DL(z)*0.066*np.power((1.0-np.power(1.+z,-0.25))/0.25,1.8)
-#        vz=self.dlz(z)*Mpc*(1.+(1.+z)/self.dlz(z)*self.ll.D_H())*(500.0*1e3/c0)
-        return lens
-
-    def dp_lens2(self,z,mud,mud_err=0.05):
-        Dl_th,DL_s=self.DL(z),self.DL_s(z)
-        A_obs=np.sqrt(mud)/Dl_th
-        A_s=A_obs*DL_s/Dl_th
-        def dps(zs,A,mu):
-            return np.sqrt(mu)/A/(1+zs)
-        dp,dp_s=simp_err(dps,[z,A_obs,mud],[z*0.0,A_s,mud*mud_err])
-        return dp/self.ll.D_H(), dp_s/self.ll.D_H()
-    
-    def gw(self,number):
-        z=self.redshift_distribution(number)
-        dl_err = self.DL_s(z)
-        dl = self.DL(z)
-        if self.random:
-            dll=stats.truncnorm(-1.0,1.0,loc=dl, scale=dl_err).rvs()
-        else:
-            dll=dl
-        return z,dll,dl_err
+#class LISA(object):
+#    
+#    def __init__(self,Omegam=0.3,h=0.7,random=True):
+#        self.ll=LCDM(Omegam,h)
+#        self.H0 = h*1e2
+#        self.Hz=self.ll.hubz
+#        self.dc=self.ll.d_z
+#        self.dlz=np.vectorize(self.ll.lum_dis_z)
+#        self.random = random
+##        self.DL_err = DL_err
+#    
+#    def redshift_distribution(self,number):
+#        Ngw=np.asarray([3.6,10.3,9.3,7.5,4.7,2.8,1.2,0.4,0.2,0.0])
+#        ratio=Ngw/np.sum(Ngw)
+#        true_n=number-1
+#        addn=0
+#        bins=np.arange(0,11,1)
+#        while true_n<number:
+#            fb=map(int,map(round,(number+addn)*ratio*100))
+#            true_n=sum(fb)
+#            addn=addn+1
+#        zzn=np.random.uniform(0.31,bins[1],fb[0])
+#        for i in range(1,len(bins)-1):
+#            zn=np.random.uniform(bins[i],bins[i+1],fb[i])
+##            print(zn,i)
+#            zzn=np.append(zzn,zn)
+##        if self.endpoint:
+##            zzn=np.append(zzn,[0.5,6])
+#        redshift=np.random.choice(zzn,number,replace=False)
+#        return np.sort(redshift)
+#    
+#    def DL(self,z):
+#        return self.dlz(z)
+#    
+#    def DL_s(self,z):
+#        lens=self.DL(z)*0.066*np.power((1.0-np.power(1.+z,-0.25))/0.25,1.8)
+##        vz=self.dlz(z)*Mpc*(1.+(1.+z)/self.dlz(z)*self.ll.D_H())*(500.0*1e3/c0)
+#        return lens
+#
+#    def dp_lens2(self,z,mud,mud_err=0.05):
+#        Dl_th,DL_s=self.DL(z),self.DL_s(z)
+#        A_obs=np.sqrt(mud)/Dl_th
+#        A_s=A_obs*DL_s/Dl_th
+#        def dps(zs,A,mu):
+#            return np.sqrt(mu)/A/(1+zs)
+#        dp,dp_s=simp_err(dps,[z,A_obs,mud],[z*0.0,A_s,mud*mud_err])
+#        return dp/self.ll.D_H(), dp_s/self.ll.D_H()
+#    
+#    def gw(self,number):
+#        z=self.redshift_distribution(number)
+#        dl_err = self.DL_s(z)
+#        dl = self.DL(z)
+#        if self.random:
+#            dll=stats.truncnorm(-1.0,1.0,loc=dl, scale=dl_err).rvs()
+#        else:
+#            dll=dl
+#        return z,dll,dl_err
