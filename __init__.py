@@ -1,11 +1,12 @@
 from __future__ import division, absolute_import, print_function
-__all__ = ['Decorator','tools','FigStyle','cos_models','MCMC','Simulation','Simulate_GW','MC_plot']
+__all__ = ['Decorator','tools','FigStyle','cos_models','Likelihood','MCMC','Simulation','Simulate_GW','MC_plot']
 
 from .Decorator import *
 from .tools import *
 from .FigStyle import *
 from .cos_models import *
 from .MCMC import *
+from .Likelihood import *
 from .Simulation import *
 from .Simulate_GW import *
 from .MC_plot import *

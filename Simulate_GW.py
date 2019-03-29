@@ -25,24 +25,20 @@ f_lower=1.0
 
 #==============================================================
 class ET(object):
-    def __init__(self,model_name='LCDM', params=[0.308,0.678],GW_type='BHNS'):
+    def __init__(self,model_name='LCDM', params=[0.308,0.678],GW_type=0.03):
         self.ll=globals().get('%s'%model_name)(*params)
         self._GW_type=GW_type
         self._gw_choice()
     
     def _gw_choice(self):
         if self._GW_type=='BHNS':
-            self._m1_range=[1,2]
-            self._m2_range=[3,10]
             self.z_max=5
         elif self._GW_type=='NSNS':
-            self._m1_range=[1,2]
-            self._m2_range=[1,2]
             self.z_max=2
         elif self._GW_type=='BHBH':
-            self._m1_range=[3,10]
-            self._m2_range=[3,10]
             self.z_max=5
+        elif 0<self._GW_type<1:
+            print('The ratio between BHNS and BNS events = %s'%self._GW_type)
         else:
             raise NameError('The type of GW your choice is wrong!\n\n\
         Please choose from ["BHNS","NSNS","BHBH"]')
@@ -97,11 +93,20 @@ class ET(object):
 
 # =============================================================================
 #=============================================================================
-    def __snr(self,z):
+    def __snr(self,z,event='BHNS'):
+        if event=='BHNS':
+            m1_range=[1,2]
+            m2_range=[3,10]
+        elif event=='NSNS':
+            m1_range=[1,2]
+            m2_range=[1,2]
+        elif event=='BHBH':
+            m1_range=[3,10]
+            m2_range=[3,10]
         rho=0.0
         while rho<=8.0:
-            m1=np.random.uniform(self._m1_range[0],self._m1_range[1])*Msun
-            m2=np.random.uniform(self._m2_range[0],self._m2_range[1])*Msun
+            m1=np.random.uniform(m1_range[0],m1_range[1])*Msun
+            m2=np.random.uniform(m2_range[0],m2_range[1])*Msun
             M=m1+m2
             eta=m1*m2/M**2
             Mc_phys=M*eta**(3.0/5.0)
@@ -143,9 +148,26 @@ class ET(object):
         return 4.*np.pi*self.ll.d_z(z)**2*R(z)/self.ll.hubz(z)/(1.0+z)
 
     def ET_z(self,zz,rand='normal'):
-        self.z,self.m1,self.m2,self.theta,self.phi,self.rho=np.vectorize(self.__snr)(zz)
-        DL=self.ll.lum_dis_z(zz)
-        DL_err=np.sqrt((2.*DL/self.rho)**2+(0.05*zz*DL)**2)
+        if type(self._GW_type)==float:
+            N=len(zz)
+            n_BHNS=round(self._GW_type*N)
+            print(n_BHNS)
+            index_BHNS=np.random.choice(np.where(zz<2)[0],n_BHNS, replace=False)
+            BNS_zz=np.delete(zz,index_BHNS)
+            print(len(index_BHNS))
+            print(len(BNS_zz))
+            zh,m1h,m2h,thetah,phih,rhoh=np.vectorize(self.__snr)(zz[index_BHNS],event='BHNS')
+            zn,m1n,m2n,thetan,phin,rhon=np.vectorize(self.__snr)(BNS_zz,event='BHBH')
+            self.z=np.append(zh,zn)
+            self.m1=np.append(m1h,m1n)
+            self.m2=np.append(m2h,m2n)
+            self.theta=np.append(thetah,thetan)
+            self.phi=np.append(phih,phin)
+            self.rho=np.append(rhoh,rhon)
+        else:
+            self.z,self.m1,self.m2,self.theta,self.phi,self.rho=np.vectorize(self.__snr)(zz,self._GW_type)
+        DL=self.ll.lum_dis_z(self.z)
+        DL_err=np.sqrt((2.*DL/self.rho)**2+(0.05*self.z*DL)**2)
         if rand=='normal':
             DL_mean=np.random.normal(DL,DL_err)
         elif rand=='1sigma':
@@ -156,15 +178,16 @@ class ET(object):
             print('The input of random is wrong.')
         self.DL=DL_mean
         self.DL_err = DL_err
-        return DL_mean,DL_err
+        return self.z ,DL_mean,DL_err
 
 
     def ET_default(self,zlow=0,zup=5,num=1000,rand='normal'):
 #        self.count=0
-        if zup>self.z_max: zup=self.z_max
+        if type(self._GW_type)==str:
+            if zup>self.z_max: zup=self.z_max
         zzn=FunctionDistribution(self.Pz,zlow,zup,num*2).rvs(num)
-        DL_mean,DL_err = self.ET_z(zzn,rand)
-        return zzn,DL_mean,DL_err
+        zz,DL_mean,DL_err = self.ET_z(zzn,rand)
+        return zz,DL_mean,DL_err
 
     def save_fulldata(self,path_file_name):
         st=['#z','m1','m2','theta','phi','snr']
