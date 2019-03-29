@@ -10,7 +10,7 @@ from scipy.integrate import quad
 import scipy.constants as sc
 import scipy.stats as stats
 import pandas as pd
-from .tools import simp_err
+from .tools import simp_err,savetxt
 from astroML.density_estimation import FunctionDistribution
 #====================constants=================================
 Mpc=sc.parsec*1e6
@@ -205,18 +205,20 @@ class ET(object):
             print('Please run the GW_z function firstly!')
     
     def save_DL(self,path_file_name):
-        st=['#z','DL','DL_err']
+#        st=['#z','DL','DL_err']
         try:
             if self.z.any():
-                data=(self.z,self.DL,self.DL_err)
-                dc=dict(zip(st,data))
-                df=pd.DataFrame(dc)
-                if path_file_name[-3:]=='lsx':
-                    df.to_excel(path_file_name,index=False)
-                elif path_file_name[-3:]=='txt':
-                    df.to_csv(path_file_name,index=False,sep=' ')
-                else:
-                    df.to_csv(path_file_name,index=False,sep=' ')
+                savetxt(path_file_name,[self.z,self.DL,self.DL_err])
+#                data=(self.z,self.DL,self.DL_err)
+##                dc=dict(zip(st,data))
+#                dc=dict(data)
+#                df=pd.DataFrame(dc)
+#                if path_file_name[-3:]=='lsx':
+#                    df.to_excel(path_file_name,index=False)
+#                elif path_file_name[-3:]=='txt':
+#                    df.to_csv(path_file_name,index=False,sep=' ')
+#                else:
+#                    df.to_csv(path_file_name,index=False,sep=' ')
         except AttributeError:
             print('Please run the GW_z function firstly!')
     
