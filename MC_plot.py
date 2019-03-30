@@ -129,8 +129,8 @@ class MCplot(object):
             if self.aic_g:
                 aic="$\mathrm{{AIC}}$=${0}$".format(round(self.minkaf[k]+2.0*n,3))
                 bic="$\mathrm{{BIC}}$=${0}$".format(round(self.minkaf[k]+n*np.log(self.data_num[k]),3))
-                kafm="$\chi_{{min}}$=${0}$".format(round(self.minkaf[k],3))
-                dof="$\chi_{{min}}/d.o.f.$=${0}$".format(round(self.minkaf[k]/(n+self.data_num[k]),3))
+                kafm="$\chi^2_{{min}}$=${0}$".format(round(self.minkaf[k],3))
+                dof="$\chi^2_{{min}}/d.o.f.$=${0}$".format(round(self.minkaf[k]/(n+self.data_num[k]),3))
                 plt.text(0.1,0.8-(n+1)*0.11,kafm,fontsize=size)
                 plt.text(0.6,0.8-(n+1)*0.11,dof,fontsize=size)
                 plt.text(0.1,0.8-(n+2)*0.11,aic,fontsize=size)

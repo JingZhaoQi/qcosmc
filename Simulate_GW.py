@@ -32,11 +32,11 @@ class ET(object):
     
     def _gw_choice(self):
         if self._GW_type=='BHNS':
-            self.z_max=5
+            print('The GW events you choose is %s'%self._GW_type)
         elif self._GW_type=='NSNS':
-            self.z_max=2
+            print('The GW events you choose is %s'%self._GW_type)
         elif self._GW_type=='BHBH':
-            self.z_max=5
+            print('The GW events you choose is %s'%self._GW_type)
         elif 0<self._GW_type<1:
             print('The ratio between BHNS and BNS events = %s'%self._GW_type)
         else:
@@ -182,8 +182,8 @@ class ET(object):
 
     def ET_default(self,zlow=0,zup=5,num=1000,rand='normal'):
 #        self.count=0
-        if type(self._GW_type)==str:
-            if zup>self.z_max: zup=self.z_max
+#        if type(self._GW_type)==str:
+#            if zup>self.z_max: zup=self.z_max
         zzn=FunctionDistribution(self.Pz,zlow,zup,num*2).rvs(num)
         zz,DL_mean,DL_err = self.ET_z(zzn,rand)
         return zz,DL_mean,DL_err
