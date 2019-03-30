@@ -151,7 +151,7 @@ class ET(object):
         if type(self._GW_type)==float:
             N=len(zz)
             n_BHNS=round(self._GW_type*N)
-            index_BHNS=np.random.choice(np.where(zz<2)[0],n_BHNS, replace=False)
+            index_BHNS=np.random.choice(np.where(zz<5)[0],n_BHNS, replace=False)
             BNS_zz=np.delete(zz,index_BHNS)
             print('The number of BHNS events is %s.'%n_BHNS)
             print('The number of BNS events is %s.'%len(BNS_zz))
