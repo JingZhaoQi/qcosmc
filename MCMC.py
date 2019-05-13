@@ -66,7 +66,7 @@ class MCMC_class(object):
                 print('如果想要一些帮助，按\'h\'。')
                 p1=input()
                 if p1=='b':
-                    sys.exit()
+                    sys.exit(0)
                 elif p1=='c':
                     return
                 elif p1=='h':
@@ -78,7 +78,7 @@ class MCMC_class(object):
                     print('中断程序按\'b\'，继续跑按\'c\'')
                     p2=input()
                     if p2=='b':
-                        raise KeyboardInterrupt
+                        sys.exit()
                     elif p2=='c':
                         break
                     else:

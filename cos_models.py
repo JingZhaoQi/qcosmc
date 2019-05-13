@@ -9,10 +9,10 @@ import numpy as np
 from scipy.integrate import odeint
 from scipy.integrate import quad
 from scipy.misc import derivative
-from scipy.interpolate import UnivariateSpline,InterpolatedUnivariateSpline
+from scipy.interpolate import UnivariateSpline,InterpolatedUnivariateSpline,splev,splrep
 #import transfer_func as tf
 from scipy.optimize import fsolve
-from scipy.constants import c as c0
+from scipy.constants import c
 from scipy.constants import parsec
 from .Decorator import vectorize
 Mpc=parsec*1e6
@@ -27,6 +27,7 @@ class LCDM(object):
         self.sigma_8 = np.float64(sigma_8)
         self.Ob0h2 = np.float64(Ob0*self.h**2)
         self.Omega_r = self.Omega_r0
+#        self.c0=c
 
     @property
     def Omega_r0(self):
@@ -43,7 +44,7 @@ class LCDM(object):
     
     def drift(self,z,yr):
         mpc=Mpc*1e2
-        c=c0*1e2
+        c=self.c0*1e2
         year=yr*365.0*24.0*60.*60.
         H0=self.h*1e7/mpc
         return c*H0*year*(1-self.hubz(z)/(1+z))
@@ -68,7 +69,7 @@ class LCDM(object):
         """
         Hubble distance in units of MPc (David Hogg arxiv: astro-ph/9905116v4)
         """
-        return c0/1e5/self.h
+        return c/1e5/self.h
 
     @vectorize
     def co_dis_z(self,z1):
@@ -219,6 +220,12 @@ class LCDM(object):
         """
         d_l = self.co_dis_z(z)*(1.+z)
         return d_l
+    
+    def MC_DL(self,z):
+        zz=np.arange(0,5,0.1)
+#        f_DL=InterpolatedUnivariateSpline(zz,self.lum_dis_z(zz))
+        return splev(z,splrep(zz,self.lum_dis_z(zz)))
+#        return f_DL(z)
     
     def mu(self,z):
         dl=self.lum_dis_z
