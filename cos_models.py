@@ -18,16 +18,16 @@ from .Decorator import vectorize
 Mpc=parsec*1e6
 
 class LCDM(object):
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5,0.1)):
         self.Om0 = np.float64(Om0)
         self.h = np.float64(h)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*self.h**2)
         self.Omega_r = self.Omega_r0
-#        self.c0=c
+        self.zz=zz
+#        self.c0=c 
 
     @property
     def Omega_r0(self):
@@ -41,6 +41,9 @@ class LCDM(object):
 
     def wz(self,z):
         return z-z-1.
+    
+    def Hz(self,z):
+        return self.hubz(z)*self.h*1e2       #Mpc
     
     def drift(self,z,yr):
         mpc=Mpc*1e2
@@ -143,15 +146,17 @@ class LCDM(object):
         or ArXiv:1609.08220
         Rb=3/(4*Omega_r*h**2)
         """
-        T_CMB=2.7255
-        obh2=self.Ob0h2
-        Rb=31500.0*obh2*(T_CMB/2.7)**(-4)
-        def sH(z):
-            cs=1/np.sqrt(3.0*(1.0+Rb/(1.0+z)))
-            return cs/self.hubz(z)
-        rsz=self.D_H*quad(sH,z,np.inf)[0]
-        return rsz
+#        T_CMB=2.7255
+#        obh2=self.Ob0h2
+#        Rb=31500.0*obh2*(T_CMB/2.7)**(-4)
+#        def sH(z):
+#            cs=1/np.sqrt(3.0*(1.0+Rb/(1.0+z)))
+#            return cs/self.hubz(z)
+#        rsz=self.D_H*quad(sH,z,np.inf)[0]
+#        return rsz
+        return self.rs_a(1/(1+z))
 
+    
     @property
     def l_A(self):
         """
@@ -186,6 +191,23 @@ class LCDM(object):
         b2=0.238*omh2**(0.223)
         zzd=1291*omh2**(0.251)*(1+b1*obh2**b2)/(1+0.659*omh2**(0.828))
         return zzd
+    
+    @property
+    def rd(self):
+        return self.rs_z(self.zd)
+    
+    def Dv(self,z):
+        return ((1+z)**2*self.ang_dis_z(z)**2*z*c/1e3/self.Hz(z))**(1/3)
+    
+    def rs_over_Dv(self,z):
+        return self.rd/self.Dv(z)
+    
+    def DM_rd(self,z,rd_f=147.78):
+        return (1+z)*self.ang_dis_z(z)*rd_f/self.rd
+    
+    def H_rd(self,z,rd_f=147.78):
+        return self.Hz(z)*self.rd/rd_f
+    
 
     @vectorize
     def co_dis_z2(self,zl,zs):
@@ -222,10 +244,10 @@ class LCDM(object):
         return d_l
     
     def MC_DL(self,z):
-        zz=np.arange(0,5,0.1)
-#        f_DL=InterpolatedUnivariateSpline(zz,self.lum_dis_z(zz))
-        return splev(z,splrep(zz,self.lum_dis_z(zz)))
-#        return f_DL(z)
+        return splev(z,splrep(self.zz,self.lum_dis_z(self.zz)))
+    
+    def MC_DA(self,z):
+        return splev(z,splrep(self.zz,self.ang_dis_z(self.zz)))
     
     def mu(self,z):
         dl=self.lum_dis_z
@@ -464,16 +486,16 @@ class LCDM(object):
 
 
 class wCDM(LCDM):
-    def __init__(self,Om0,w,h=0.7,OmK=0.0,Ob0=0.050,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,w,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5,0.1)):
         self.Om0 = np.float64(Om0)
         self.w = np.float64(w)
         self.h = np.float64(h)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
         self.Omega_r = self.Omega_r0
+        self.zz = zz
 
 
     def hubz(self,z):
@@ -488,15 +510,14 @@ class Cosmography(LCDM):
     """
     Cosmography
     """
-    def __init__(self,q0,j0,s0,h=0.7,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,q0,j0,s0,h=0.7,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.q0 = np.float64(q0)
         self.j0 = np.float64(j0)
         self.s0 = np.float64(s0)
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h =np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 
             
     def hubz(self,z):
@@ -524,16 +545,15 @@ class CPL(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(1.+z)**(3*(1+self.w0+self.wa))*np.exp(-3.*self.wa*(z/(1.+z))))
@@ -544,17 +564,16 @@ class Geos(LCDM):
     """
     arXiv:0905.4052V2
     """
-    def __init__(self,Om0,w0,wa,beta,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,beta,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
         self.OmK = OmK
         self.beta = np.float64(beta)
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         if abs(self.beta-0)<1e-2:
@@ -583,16 +602,15 @@ class GCG(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,As,alpha,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,As,alpha,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.As = np.float64(As)
         self.alpha = np.float64(alpha)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(self.As+(1-self.As)*(1+z)**(3*(1+self.alpha)))**(1/(1+self.alpha)))
@@ -608,16 +626,15 @@ class JBP(LCDM):
     for which equation of state w is parametrized as:
     w(a) = w0 + wa*z/(1+z)^2
     """
-    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(1.+z)**(3*(1+self.w0))*np.exp(3.*self.wa*z**2/(2*(1.+z)**2)))
@@ -637,14 +654,13 @@ class DGP(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3+(1.-self.Om0)**2/4.)+(1.-self.Om0)/2.
@@ -662,15 +678,14 @@ class CGG(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,k,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,k,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.k = np.float64(k)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3+self.Om0/self.k*np.sqrt(self.k**2*((1.-self.Om0)/self.Om0)**2-1.+(1.+z)**6))
@@ -680,17 +695,16 @@ class MCG(LCDM):
 	JCAP12(2014)043, ArXiv ePrint: 1406.7514
 
     """
-    def __init__(self,Om0,As,B,alpha,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,As,B,alpha,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.As = np.float64(As)
         self.B = np.float64(B)
         self.alpha = np.float64(alpha)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(self.As+(1.-self.As)*(1.+z)**(3.*(1.+self.B)*(1.+self.alpha)))**(1./(1.+self.alpha)))
@@ -704,11 +718,11 @@ class PKK(LCDM):
     """
     JCAP12(2014)043, ArXiv ePrint: 1406.7514
     """
-    def __init__(self,Om0,k0,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,k0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = float(Om0)
         self.k0 = float(k0)
         self.OmK = OmK
-        self.Ob0 = float(Ob0)
+        self.Ob0h2 = float(Ob0h2)
         self.ns = float(ns)
         self.h = float(h)
         self.sigma_8 = float(sigma_8)
@@ -733,17 +747,16 @@ class PKK(LCDM):
 class Pade1(LCDM):
     """
     """
-    def __init__(self,Om0,w0,wa,wb,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,wb,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
         self.wb = np.float64(wb)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
 	
     def hubz(self,z):
         om=self.Om0
@@ -763,17 +776,16 @@ class Pade2(LCDM):
     """
 
     """
-    def __init__(self,Om0,w0,wa,wb,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,wb,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
         self.wb = np.float64(wb)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
     
     def hubz(self,z):
         om=self.Om0
@@ -797,15 +809,14 @@ class HDE_CA(LCDM):
     PHYSICAL REVIEW D 88, 063534 (2013)
     Cosmic age cutoff
     '''
-    def __init__(self,Om0,cc,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,cc,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.cc = np.float64(cc)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
       
     zz=np.linspace(0.0,5,200)
   
@@ -849,15 +860,14 @@ class HDE_CT(LCDM):
     PHYSICAL REVIEW D 88, 063534 (2013)
     Conformal time cutoff
     '''
-    def __init__(self,Om0,cc,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,cc,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.cc = np.float64(cc)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
       
     zz=np.linspace(0.0,5,200)
   
@@ -900,16 +910,15 @@ class HDE_EH(LCDM):
     Eur.Phys.J.C(2016)76:588
     Event horizon cutoff
     '''
-    def __init__(self,Om0,cc,h=0.7,Or0='None',OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,cc,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1)):
         self.Om0 = np.float64(Om0)
         self.cc = np.float64(cc)
-        self.Ob0 = np.float64(Ob0)
         self.OmK = OmK
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)    
-        self.zz=np.arange(0,5,0.1)
+        self.Ob0h2 = np.float64(Ob0h2)    
+        self.zz=np.float64(zz)
         if Or0=='None':
             self.Omega_r=self.Omega_r0
         else:
@@ -941,7 +950,7 @@ class RDE(LCDM):
     Eur.Phys.J.C(2016)76:588
     Ricci dark energy model
     '''
-    def __init__(self,Om0,r,h=0.7,Or0='None',OmK=0.0,Ob0=0.045,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,r,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
         self.Om0 = np.float64(Om0)
         self.r = np.float64(r)
         self.h = np.float64(h)
@@ -949,11 +958,10 @@ class RDE(LCDM):
             self.Omega_r=self.Omega_r0
         else:
             self.Omega_r=np.float64(Or0)
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.OmK = OmK
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*self.h**2)
 
     def hubz(self,z):
         Ez1=2*self.Om0/(2-self.r)*(1+z)**3+self.Omega_r*(1+z)**4
@@ -967,12 +975,12 @@ class IDE1(LCDM):
     authers: Cao Shuo, Liang Nan
     model 1
     """
-    def __init__(self,Om0,wx,rm,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,wx,rm,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0= np.float64(Om0)
         self.wx= np.float64(wx)
         self.rm = np.float64(rm)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
@@ -987,11 +995,11 @@ class RVM(LCDM):
     arXiv: 1704.02136
     Running Vacuum model
     """
-    def __init__(self,Om0,v,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,v,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0= np.float64(Om0)
         self.v= np.float64(v)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
@@ -1006,8 +1014,8 @@ class Rhct(LCDM):
     arXiv: 1704.02136
     Running Vacuum model
     """
-    def __init__(self,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
-        self.Ob0 = np.float64(Ob0)
+    def __init__(self,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.OmK = OmK
         self.h = np.float64(h)
@@ -1023,15 +1031,14 @@ class FT_law(LCDM):
     Eur. Phys. J. C (2017) 77:502 f1CDM
     f(T)= α(−T)^b
     """
-    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.b = np.float64(b)
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.OmK = OmK
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
   
     def hubzz(self,z):
         Om=self.Om0
@@ -1056,15 +1063,14 @@ class FT_exp(LCDM):
     Eur. Phys. J. C (2017) 77:502 model f2CDM
     f(T) = αT0(1−exp(−p*sqrt(T/T0)))
     """
-    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.b = np.float64(b)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
   
     def hubzz(self,z):
         Om=self.Om0
@@ -1093,15 +1099,14 @@ class FT_tanh(LCDM):
     Eur. Phys. J. C (2017) 77:502 f3CDM
     f(T) = α(−T)^{n}*tanh(T0/T)
     """
-    def __init__(self,Om0,n,h=0.7,OmK=0.0,Ob0=0.045,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,n,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.n = np.float64(n)
         self.OmK = OmK
-        self.Ob0 = np.float64(Ob0)
+        self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-        self.Ob0h2 = np.float64(Ob0*h**2)
   
     def hubzz(self,z):
         Om=self.Om0
