@@ -427,7 +427,7 @@ class gen_SNIa(object):
     Eur. Phys. J. C (2017) 77:434
     DOI 10.1140/epjc/s10052-017-5005-4
     '''
-    def __init__(self,Omegam=0.3,h=0.7,additional_mu_err=0.0):
+    def __init__(self,Omegam=0.308,h=0.678,additional_mu_err=0.0):
         self.ll=LCDM(Omegam,h)
         self.additional_mu_err = additional_mu_err
     
@@ -446,8 +446,7 @@ class gen_SNIa(object):
             s_sys=0.01*(1+z)/1.8
             s_tot=np.sqrt(s_stat2+s_sys**2)
             return s_tot
-        Dl=np.vectorize(self.ll.lum_dis_z)
-        mu_th=5.0*np.log10(Dl(z))+25.
+        mu_th=5.0*np.log10(self.ll.lum_dis_z(z))+25.
 #        return mu_th,mu_err(z)
         return mu_th,mu_err(z)
     

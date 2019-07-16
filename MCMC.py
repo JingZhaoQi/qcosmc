@@ -107,7 +107,7 @@ class MCMC_class(object):
         return R_c
 
     @timer
-    def MCMC(self,steps=500,nwalkers=100):
+    def MCMC(self,steps=1000,nwalkers=100,nc=1e-4):
         print ('\n'+'=======================================================')
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
@@ -119,7 +119,7 @@ class MCMC_class(object):
         
         # Set up the sampler.
         ndim= self.n
-        pos = [result['x'] + 1e-4*np.random.randn(ndim) for i in range(nwalkers)]
+        pos = [result['x'] + nc*np.random.randn(ndim) for i in range(nwalkers)]
         sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp)
         #print pos
         # Clear and run the production chain.
@@ -130,14 +130,13 @@ class MCMC_class(object):
         chains_dir='./chains/'
         if not os.path.exists(chains_dir):
             os.makedirs(chains_dir)
-        # Make the triangle plot.
+        
         savefile_name='./chains/'+self.Chains_name+'.npy'
-        burnin = 50
+        burnin = 100
         samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
         self.Rc(samples,nwalkers)
         vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
         self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
-#        self.theta_fact=0.0
         self.minkaf=self.chi2(self.theta_fit)
         self.samples=samples
         ranges=list(zip(self.params_all['lower'],self.params_all['upper']))

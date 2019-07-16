@@ -950,7 +950,7 @@ class RDE(LCDM):
     Eur.Phys.J.C(2016)76:588
     Ricci dark energy model
     '''
-    def __init__(self,Om0,r,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,r,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5,0.1)):
         self.Om0 = np.float64(Om0)
         self.r = np.float64(r)
         self.h = np.float64(h)
@@ -962,6 +962,7 @@ class RDE(LCDM):
         self.OmK = OmK
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
+        self.zz=np.float64(zz)
 
     def hubz(self,z):
         Ez1=2*self.Om0/(2-self.r)*(1+z)**3+self.Omega_r*(1+z)**4
@@ -1136,3 +1137,49 @@ class FT_tanh(LCDM):
                 +(-1+np.sinh(1)*(n-0.1e1/0.2e1)*np.cosh(1))*Ez**6*np.cosh(0.1e1/Ez**2)**3\
                 -2*np.cosh(1)**2*np.sinh(0.1e1/Ez**2)*Ez**(2*n)*(om-1))/(-1+np.sinh(0.1e1/Ez**2)\
                 *Ez**2*(n-0.1e1/0.2e1)*np.cosh(0.1e1/Ez**2))
+
+class fR_power(LCDM):
+    def __init__(self,Om0,nn,bb,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1)):
+        self.Om0 = np.float64(Om0)
+        self.nn = np.float64(nn)
+        self.bb = np.float64(bb)
+        self.OmK = OmK
+        self.ns = np.float64(ns)
+        self.h = np.float64(h)
+        self.sigma_8 = np.float64(sigma_8)
+        self.Ob0h2 = np.float64(Ob0h2)    
+        self.zz=np.float64(zz)
+        if Or0=='None':
+            self.Omega_r=self.Omega_r0
+        else:
+            self.Omega_r=np.float64(Or0)
+        self.Ezz=np.sqrt(self.H2z(self.zz)/self.h**2/1e4)
+        self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.Ezz)
+    
+    
+    def hubz(self,z):
+        return self.f_Ez(z)
+    
+    
+    def fR_function(self,R):
+        f=R-self.bb/R**self.nn
+        fR=1+self.bb/R**self.nn*self.nn/R
+        fRR=-self.bb/R**self.nn*self.nn**2/R**2-self.bb/R**self.nn*self.nn/R**2
+        return f,fR,fRR
+    
+    @vectorize
+    def solve_R(self,z):
+        H0=self.h*1e2
+        Matter=self.Om0*(1+z)**3+self.Omega_r*(1+z)**4
+        def RR(R,z):
+            f,fR,fRR=self.fR_function(R)
+            return R*fR-2*f+3*H0**2*Matter
+        fs=fsolve(RR,[2.0],args=(z,))
+        return fs[0]
+    
+    def H2z(self,z):
+        R=self.solve_R(z)
+        f,fR,fRR=self.fR_function(R)
+        H2u=3*f-R*fR
+        H2d=6*fR*(1-1.5*fRR*(R*fR-2*f)/fR/(R*fRR-fR))**2
+        return H2u/H2d
