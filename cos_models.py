@@ -208,6 +208,11 @@ class LCDM(object):
     def H_rd(self,z,rd_f=147.78):
         return self.Hz(z)*self.rd/rd_f
     
+    def dA_over_DV(self,z):
+        dA=self.co_dis_z(self.zs_z)
+        DV=np.power(self.co_dis_z(z)**2*z*self.D_H/self.hubz(z),1/3)
+        return dA/DV
+    
 
     @vectorize
     def co_dis_z2(self,zl,zs):
@@ -1139,7 +1144,7 @@ class FT_tanh(LCDM):
                 *Ez**2*(n-0.1e1/0.2e1)*np.cosh(0.1e1/Ez**2))
 
 class fR_power(LCDM):
-    def __init__(self,Om0,nn,bb,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1)):
+    def __init__(self,Om0,nn,bb,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1),inter=True):
         self.Om0 = np.float64(Om0)
         self.nn = np.float64(nn)
         self.bb = np.float64(bb)
@@ -1155,10 +1160,14 @@ class fR_power(LCDM):
             self.Omega_r=np.float64(Or0)
         self.Ezz=np.sqrt(self.H2z(self.zz)/self.h**2/1e4)
         self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.Ezz)
+        self.inter=inter
     
     
     def hubz(self,z):
-        return self.f_Ez(z)
+        if self.inter==True:
+            return self.f_Ez(z)
+        else:
+            return np.sqrt(self.H2z(z))
     
     
     def fR_function(self,R):
@@ -1178,6 +1187,72 @@ class fR_power(LCDM):
         return fs[0]
     
     def H2z(self,z):
+        R=self.solve_R(z)
+        f,fR,fRR=self.fR_function(R)
+        H2u=3*f-R*fR
+        H2d=6*fR*(1-1.5*fRR*(R*fR-2*f)/fR/(R*fRR-fR))**2
+        return H2u/H2d
+
+class fR_power2(LCDM):
+    def __init__(self,Om0,nn,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1),inter=True):
+        self.Om0 = np.float64(Om0)
+        self.nn = np.float64(nn)
+        self.OmK = OmK
+        self.ns = np.float64(ns)
+        self.h = np.float64(h)
+        self.sigma_8 = np.float64(sigma_8)
+        self.Ob0h2 = np.float64(Ob0h2)    
+        self.zz=np.float64(zz)
+        if Or0=='None':
+            self.Omega_r=self.Omega_r0
+        else:
+            self.Omega_r=np.float64(Or0)
+        self.Ezz=np.sqrt(self.H2z(self.zz))
+        self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.Ezz)
+        self.inter = inter
+
+    @property
+    def Omega_r0(self):
+        T_CMB=2.7255
+        z_eq=2.5e4*self.Om0*self.h**2*(T_CMB/2.7)**(-4)
+        return self.Om0/(1.0+z_eq)    
+    
+    def hubz(self,z):
+        if self.inter==True:
+            return self.f_Ez(z)
+        else:
+            return np.sqrt(self.H2z(z))
+    
+    def fR_function(self,R):
+#        H0=self.h*1e2
+        H0=1
+        def fRz0(R):
+            return ((self.nn+1)*R-3*H0**2*self.Om0*self.nn)**2*((self.nn+1)*R
+                    -0.3e1/0.2e1*H0**2*self.Om0*self.nn)*\
+                    ((self.nn+1)*R+3*H0**2*self.Om0*(self.nn+3))*R/((self.nn+1)**2*R**2\
+                     -0.9e1/0.4e1*self.nn*H0**2*self.Om0*(self.nn+1)*R-\
+                     0.9e1/0.4e1*self.nn*H0**4*self.Om0**2*(self.nn+3))**2/H0**2/12-1
+        R0=fsolve(fRz0,[10.0])[0]
+        bb=R0**self.nn*(R0-3*H0**2*self.Om0)/(self.nn+2)
+        f=R-bb/R**self.nn
+        fR=1+bb/R**self.nn*self.nn/R
+        fRR=-bb/R**self.nn*self.nn**2/R**2-bb/R**self.nn*self.nn/R**2
+        return f,fR,fRR
+    
+    @vectorize
+    def solve_R(self,z):
+#        H0=self.h*1e2
+        H0=1
+        Matter=self.Om0*(1+z)**3
+        def RR(R,z):
+            f,fR,fRR=self.fR_function(R)
+            return R*fR-2*f+3*H0**2*Matter
+        fs=fsolve(RR,[20.0],args=(z,))
+        return fs[0]
+    
+    def H2z(self,z):
+#        H0=self.h*1e2
+#        H0=1
         R=self.solve_R(z)
         f,fR,fRR=self.fR_function(R)
         H2u=3*f-R*fR
