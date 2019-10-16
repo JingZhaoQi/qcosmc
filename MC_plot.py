@@ -17,7 +17,7 @@ lss=['-','--','-.',':']
 outdir='./results/'
 
 class MCplot(object):
-    def __init__(self,Chains):
+    def __init__(self,Chains,ignore_rows=0.3):
         self.root=list(np.asarray(Chains)[:,0])
         self.lengend=list(np.asarray(Chains)[:,1])
         self.aic_g=True
@@ -30,7 +30,7 @@ class MCplot(object):
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
             samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name)
-            self.Samp.append(MCSamples(samples=samples,names = self.theta_name, labels = self.theta_name,ranges=ranges))
+            self.Samp.append(MCSamples(samples=samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
@@ -60,13 +60,14 @@ class MCplot(object):
             ax.xaxis.set_major_locator(plt.MultipleLocator(kwargs['xaxis']))
         plt.tight_layout()
         g.export(os.path.join(outdir+''.join(self.root)+self.param_names[n-1].replace('\\','')+'_1D.pdf'))
+        return g
     
     
     def plot2D(self,pp,colorn=0,contour_num=2,width_inch=8,**kwargs):
         g = plots.getSinglePlotter(width_inch=width_inch,**kwargs)
         g.settings.num_plot_contours = contour_num
-        g.settings.axes_fontsize = 14
-        g.settings.lab_fontsize = 20
+        g.settings.axes_fontsize = 12
+        g.settings.lab_fontsize = 18
         g.plot_2d(self.Samp,self.param_names[pp[0]-1],self.param_names[pp[1]-1],filled=True,colors=colors[colorn:colorn+self._n],**kwargs)
         if all(self.lengend):
             g.add_legend(self.lengend,colored_text=True, fontsize=18)
@@ -78,6 +79,7 @@ class MCplot(object):
             g.add_x_marker(kwargs['x_marker'],lw=1.5)
         plt.tight_layout()
         g.export(os.path.join(outdir,''.join(self.root)+'_2D.pdf'))
+        return g
 
 
     def plot3D(self,pp,colorn=None,contour_num=2,**kwargs):
@@ -104,20 +106,24 @@ class MCplot(object):
             for ax in g.subplots[:,0]:
                 ax.axvline(kwargs['tline'], color='red', ls='--',alpha=0.5)
 #        plt.tight_layout()
-        if 'xaxis1' in kwargs:
-            for ax in g.subplots[:,0]:
-                ax.xaxis.set_major_locator(plt.MultipleLocator(kwargs['xaxis1']))
-        if 'xaxis2' in kwargs:
-            for ax in g.subplots[:,1]:
-                ax.xaxis.set_major_locator(plt.MultipleLocator(kwargs['xaxis2']))
+        if 'ax_range' in kwargs:
+            for axi in kwargs['ax_range']:
+                g.subplots[-1,axi[0]-1].xaxis.set_major_locator(plt.MultipleLocator(axi[1]))
+                if axi[0]-1>0:
+                    g.subplots[axi[0]-1,0].yaxis.set_major_locator(plt.MultipleLocator(axi[1]))
+        if 'xlim' in kwargs:
+            for xi in kwargs['xlim']:
+                for ax in g.subplots[:,xi[0]-1]:
+                    ax.set_xlim(xi[1][0],xi[1][1])
         g.export(os.path.join(outdir,''.join(self.root)+'_tri.pdf'))
+        return g
     
     @property
     def results(self):
+        re=[]
         for k in range(self._n):
             n=len(self.Samp[k].getParamNames().names)
             pnames=self.Samp[k].getParamNames().names
-            re=[]
             plt.figure(figsize=(10,6+(n-1)), dpi=90)
             plt.axes([0.025,0.025,0.95,0.95])
             plt.xticks([]), plt.yticks([])
@@ -145,6 +151,8 @@ class MCplot(object):
                 plt.text(0.1,0.8-(n+2)*0.11,aic,fontsize=size)
                 plt.text(0.6,0.8-(n+2)*0.11,bic,fontsize=size)
             plt.savefig(outdir+self.root[k]+'_results.png',dpi=300)
+        for i in range(self._n):
+            print(',  '.join(re[i:i+n])+'\n')
         return re
 
 

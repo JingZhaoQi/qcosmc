@@ -12,13 +12,13 @@ from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline,InterpolatedUnivariateSpline,splev,splrep
 #import transfer_func as tf
 from scipy.optimize import fsolve
-from scipy.constants import c
+from scipy.constants import c,m_p,G
 from scipy.constants import parsec
 from .Decorator import vectorize
 Mpc=parsec*1e6
 
 class LCDM(object):
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5,0.1)):
+    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5.1,0.1)):
         self.Om0 = np.float64(Om0)
         self.h = np.float64(h)
         self.OmK = OmK
@@ -136,7 +136,7 @@ class LCDM(object):
         def soundH(a):
             return 1.0/(a**2*self.huba(a)*np.sqrt(3.0*(1.0+obh2*a*Rb)))
 #            return 1.0/(a**2*self.huba(a)*np.sqrt(3.0*(1.0+(3.0*obh2/4.0/orh2)*a)))
-        rs=self.D_H*quad(soundH,0.0,a)[0]
+        rs=self.D_H*quad(soundH,1e-8,a)[0]
         return rs
     
     def rs_z(self,z):
@@ -258,6 +258,25 @@ class LCDM(object):
         dl=self.lum_dis_z
         return 5. * np.log10(dl(z)) + 25.
 
+#==============FRB The Astrophysical Journal Letters, 860:L7 (6pp), 2018 June 10===================
+    @vectorize
+    def Xz(self,z):
+        y1=1
+        y2=4-3*y1
+        XeH=1
+        XeHe=1
+        Xz=(3/4)*y1*XeH+(1/8)*y2*XeHe
+        def xzint(z):
+            return Xz*(1+z)/self.hubz(z)
+        return quad(xzint,0,z)[0]
+    
+    def Xz_MC(self,z):
+        return splev(z,splrep(self.zz,self.Xz(self.zz)))
+    
+    def DM(self,z):
+        f_IGM=0.83
+        return 3*1e2*self.Ob0h2/self.h*f_IGM*c*(1e3/Mpc/1e6/parsec)/(8*np.pi*m_p*G)*self.Xz_MC(z)
+#=========================================================================================================
     @vectorize
     def time_delay_dis(self,zl,zs):
         D_ds = self.ang_dis_z2(zl,zs)
