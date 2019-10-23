@@ -29,8 +29,8 @@ class MCplot(object):
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name)
-            self.Samp.append(MCSamples(samples=samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
+            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name)
+            self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
