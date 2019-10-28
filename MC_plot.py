@@ -68,6 +68,7 @@ class MCplot(object):
         g.settings.num_plot_contours = contour_num
         g.settings.axes_fontsize = 12
         g.settings.lab_fontsize = 18
+        g.settings.legend_frame = False
         g.plot_2d(self.Samp,self.param_names[pp[0]-1],self.param_names[pp[1]-1],filled=True,colors=colors[colorn:colorn+self._n],**kwargs)
         if all(self.lengend):
             g.add_legend(self.lengend,colored_text=True, fontsize=18)
@@ -99,7 +100,7 @@ class MCplot(object):
         g.settings.legend_fontsize = 18
         g.settings.axes_fontsize = 12
         g.settings.lab_fontsize = 16
-        g.settings.figure_legend_frame = False
+        g.settings.legend_frame = False
         g.settings.alpha_filled_add=0.8
         g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,**kwargs)
         if 'tline' in kwargs:

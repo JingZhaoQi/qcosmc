@@ -6,19 +6,20 @@ Created on Sat Mar 11 15:07:21 2017
 """
 
 import numpy as np
-from scipy.integrate import odeint
-from scipy.integrate import quad
+from scipy.integrate import quad,odeint
 from scipy.misc import derivative
 from scipy.interpolate import UnivariateSpline,InterpolatedUnivariateSpline,splev,splrep
 #import transfer_func as tf
 from scipy.optimize import fsolve
-from scipy.constants import c,m_p,G
-from scipy.constants import parsec
+from scipy.constants import c,m_p,G,parsec
 from .Decorator import vectorize
+#from .SN import SN_likelihood
+#import os
 Mpc=parsec*1e6
-
+#dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/'
+#like = SN_likelihood(dataDir+'full_long.dataset')
 class LCDM(object):
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5.1,0.1)):
+    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
         self.Om0 = np.float64(Om0)
         self.h = np.float64(h)
         self.OmK = OmK
@@ -26,9 +27,7 @@ class LCDM(object):
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
         self.Omega_r = self.Omega_r0
-        self.zz=zz
-#        self.c0=c 
-
+        
     @property
     def Omega_r0(self):
         T_CMB=2.7255
@@ -249,10 +248,12 @@ class LCDM(object):
         return d_l
     
     def MC_DL(self,z):
-        return splev(z,splrep(self.zz,self.lum_dis_z(self.zz)))
+        zz=np.arange(0,z.max()+0.1,0.1)
+        return splev(z,splrep(zz,self.lum_dis_z(zz)))
     
     def MC_DA(self,z):
-        return splev(z,splrep(self.zz,self.ang_dis_z(self.zz)))
+        zz=np.arange(0,z.max()+0.1,0.1)
+        return splev(z,splrep(zz,self.ang_dis_z(zz)))
     
     def mu(self,z):
         dl=self.lum_dis_z
@@ -277,6 +278,11 @@ class LCDM(object):
         f_IGM=0.83
         return 3*1e2*self.Ob0h2/self.h*f_IGM*c*(1e3/Mpc/1e6/parsec)/(8*np.pi*m_p*G)*self.Xz_MC(z)
 #=========================================================================================================
+
+#    def addSN(self):
+#        zs = like.get_redshifts()
+#        self.chi2=self.chi2+like.loglike(self.MC_DA(zs))*2
+        
     @vectorize
     def time_delay_dis(self,zl,zs):
         D_ds = self.ang_dis_z2(zl,zs)
