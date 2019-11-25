@@ -148,33 +148,36 @@ class ET(object):
         return 4.*np.pi*self.ll.d_z(z)**2*R(z)/self.ll.hubz(z)/(1.0+z)
 
     def ET_z(self,zz,rand='normal'):
-        if type(self._GW_type)==float:
-            N=len(zz)
-            n_BHNS=round(self._GW_type*N)
-            index_BHNS=np.random.choice(np.where(zz<5)[0],n_BHNS, replace=False)
-            BNS_zz=np.delete(zz,index_BHNS)
-            print('The number of BHNS events is %s.'%n_BHNS)
-            print('The number of BNS events is %s.'%len(BNS_zz))
-            zh,m1h,m2h,thetah,phih,rhoh=np.vectorize(self.__snr)(zz[index_BHNS],event='BHNS')
-            zn,m1n,m2n,thetan,phin,rhon=np.vectorize(self.__snr)(BNS_zz,event='NSNS')
-            self.z=np.append(zh,zn)
-            self.m1=np.append(m1h,m1n)
-            self.m2=np.append(m2h,m2n)
-            self.theta=np.append(thetah,thetan)
-            self.phi=np.append(phih,phin)
-            self.rho=np.append(rhoh,rhon)
-        else:
-            self.z,self.m1,self.m2,self.theta,self.phi,self.rho=np.vectorize(self.__snr)(zz,self._GW_type)
-        DL=self.ll.lum_dis_z(self.z)
-        DL_err=np.sqrt((2.*DL/self.rho)**2+(0.05*self.z*DL)**2)
-        if rand=='normal':
-            DL_mean=np.random.normal(DL,DL_err)
-        elif rand=='1sigma':
-            DL_mean=stats.truncnorm(-1,1,loc=DL,scale=DL_err).rvs()
-        elif rand=='None':
-            DL_mean=DL
-        else:
-            print('The input of random is wrong.')
+        Dd=np.zeros(len(zz))-1
+        while (Dd<=0).any():
+            if type(self._GW_type)==float:
+                N=len(zz)
+                n_BHNS=round(self._GW_type*N)
+                index_BHNS=np.random.choice(np.where(zz<5)[0],n_BHNS, replace=False)
+                BNS_zz=np.delete(zz,index_BHNS)
+                print('The number of BHNS events is %s.'%n_BHNS)
+                print('The number of BNS events is %s.'%len(BNS_zz))
+                zh,m1h,m2h,thetah,phih,rhoh=np.vectorize(self.__snr)(zz[index_BHNS],event='BHNS')
+                zn,m1n,m2n,thetan,phin,rhon=np.vectorize(self.__snr)(BNS_zz,event='NSNS')
+                self.z=np.append(zh,zn)
+                self.m1=np.append(m1h,m1n)
+                self.m2=np.append(m2h,m2n)
+                self.theta=np.append(thetah,thetan)
+                self.phi=np.append(phih,phin)
+                self.rho=np.append(rhoh,rhon)
+            else:
+                self.z,self.m1,self.m2,self.theta,self.phi,self.rho=np.vectorize(self.__snr)(zz,self._GW_type)
+            DL=self.ll.lum_dis_z(self.z)
+            DL_err=np.sqrt((2.*DL/self.rho)**2+(0.05*self.z*DL)**2)
+            if rand=='normal':
+                DL_mean=np.random.normal(DL,DL_err)
+            elif rand=='1sigma':
+                DL_mean=stats.truncnorm(-1,1,loc=DL,scale=DL_err).rvs()
+            elif rand=='None':
+                DL_mean=DL
+            else:
+                print('The input of random is wrong.')
+            Dd=DL_mean-DL_err
         self.DL=DL_mean
         self.DL_err = DL_err
         return self.z ,DL_mean,DL_err

@@ -1062,7 +1062,7 @@ class FT_law(LCDM):
     Eur. Phys. J. C (2017) 77:502 f1CDM
     f(T)= α(−T)^b
     """
-    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5.1,0.1)):
         self.Om0 = np.float64(Om0)
         self.b = np.float64(b)
         self.Ob0h2 = np.float64(Ob0h2)
@@ -1070,20 +1070,22 @@ class FT_law(LCDM):
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-  
+        self.zz = zz
+        self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.hubzz(self.zz))
+    
+    @vectorize
     def hubzz(self,z):
         Om=self.Om0
         b=self.b
         a0=(1.-Om)
-        def E2(E,z):
+        def E2(E):
             B=Om*(1.+z)**3
             return E**b*a0+B-E
-        fs=fsolve(E2,[1.0],args=(z,))        
+        fs=fsolve(E2,[1.0])  
         return fs[0]
         
     def hubz(self,z):
-        hz=np.vectorize(self.hubzz)
-        return np.sqrt(hz(z))
+        return self.f_Ez(z)
     
     def weff(self,z):
         Ez=self.hubz(z)
@@ -1094,7 +1096,7 @@ class FT_exp(LCDM):
     Eur. Phys. J. C (2017) 77:502 model f2CDM
     f(T) = αT0(1−exp(−p*sqrt(T/T0)))
     """
-    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,b,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5.1,0.1)):
         self.Om0 = np.float64(Om0)
         self.b = np.float64(b)
         self.OmK = OmK
@@ -1102,7 +1104,10 @@ class FT_exp(LCDM):
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-  
+        self.zz = zz
+        self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.hubzz(self.zz))
+    
+    @vectorize
     def hubzz(self,z):
         Om=self.Om0
         b=self.b
@@ -1114,8 +1119,7 @@ class FT_exp(LCDM):
         return fs[0]
         
     def hubz(self,z):
-        hz=np.vectorize(self.hubzz)
-        return hz(z)
+        return self.f_Ez(z)
     
     def weff(self,z):
         Ez=self.hubz(z)
@@ -1130,7 +1134,7 @@ class FT_tanh(LCDM):
     Eur. Phys. J. C (2017) 77:502 f3CDM
     f(T) = α(−T)^{n}*tanh(T0/T)
     """
-    def __init__(self,Om0,n,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,n,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5.1,0.1)):
         self.Om0 = np.float64(Om0)
         self.n = np.float64(n)
         self.OmK = OmK
@@ -1138,7 +1142,10 @@ class FT_tanh(LCDM):
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
-  
+        self.zz = zz
+        self.f_Ez=InterpolatedUnivariateSpline(self.zz,self.hubzz(self.zz))
+
+    @vectorize
     def hubzz(self,z):
         Om=self.Om0
         n=self.n
@@ -1151,8 +1158,7 @@ class FT_tanh(LCDM):
         return fs[0]
         
     def hubz(self,z):
-        hz=np.vectorize(self.hubzz)
-        return hz(z)
+        return self.f_Ez(z)
     
     def weff(self,z):
         Ez=self.hubz(z)
