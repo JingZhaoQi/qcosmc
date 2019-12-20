@@ -1,5 +1,5 @@
 from __future__ import division, absolute_import, print_function
-__all__ = ['Decorator','tools','FigStyle','cos_models','Likelihood','MCMC','Simulation','Simulate_GW','MC_plot']
+__all__ = ['Decorator','tools','FigStyle','cos_models','Likelihood','MCMC','Simulation','Simulate_GW']
 
 from .Decorator import *
 from .tools import *
@@ -9,7 +9,6 @@ from .MCMC import *
 from .Likelihood import *
 from .Simulation import *
 from .Simulate_GW import *
-from .MC_plot import *
 
 
 __version__ = "0.1.0"
