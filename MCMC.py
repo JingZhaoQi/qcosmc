@@ -369,6 +369,21 @@ class Fisherplot(MCplot):
         self._n = len(self.Samp)
         self.root.append(lengend)
     
+    def addChains(self,Chains,ignore_rows=0.3):
+        root=list(np.asarray(Chains)[:,0])
+        lengend=list(np.asarray(Chains)[:,1])
+        n = len(Chains)
+        for i in range(n):
+            savefile_name='./chains/'+root[i]+'.npy'
+            samples,theta_name,theta_fit,theta_fact,minkaf,data_num,ranges=np.load(savefile_name, allow_pickle=True)
+            self.Samp.append(MCSamples(samples=samples,names = theta_name, labels = theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
+        self.param_names=[]
+        for na in self.Samp[-1].getParamNames().names:
+            self.param_names.append(na.name)
+        self.lengend+=lengend
+        self._n = len(self.Samp)
+        self.root+=root
+    
 
 
 class CMCplot(MCplot):
