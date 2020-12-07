@@ -86,10 +86,13 @@ class gen_QSO(object):
         qzz=self.qz()
         theta_th=self._theta(self.L,self.qz())
         theta_s=theta_th*self.theta_err
-        if self.random_err:
+        if self.random_err=='normal':
             theta_obs=np.random.normal(theta_th,theta_s)
-        else:
+        elif self.random_err=='1sigma':
             theta_obs=stats.truncnorm(-1,1,loc=theta_th,scale=theta_s).rvs()
+        else:
+            theta_obs=theta_th
+            
         return qzz,theta_obs,theta_s
     
     def DA(self):
@@ -121,7 +124,7 @@ class gen_QSO(object):
     def plt_DA(self,*args, **kwargs):
         qzz,DAq,DA_s=self.DA()
         plt.figure()
-        plt.errorbar(qzz,DAq,DA_s,fmt='_')
+        plt.errorbar(qzz,DAq,DA_s,fmt='.',color='k',elinewidth=0.5,capsize=1,alpha=0.9,capthick=0.5,ms=3)
         plt.xlabel('$z$')
         plt.ylabel('$D_A(z) ~(\mathrm{Mpc})$')
         qplt(*args, **kwargs)
@@ -229,7 +232,7 @@ class gen_SGL(object):
         sgln=[]
         zl=self.sgl[:,0]
         zs=self.sgl[:,1]
-        DAl=DAs=DAl_sig=DAs_sig=[]
+        DAl=[];DAs=[];DAl_sig=[];DAs_sig=[]
         xs=self.sgl[:,9]
         ys=self.sgl[:,10]
         beta=np.sqrt(xs**2+ys**2)
@@ -317,6 +320,17 @@ class gen_SGL(object):
         TD_t=(1.0+zl)/2.0/c0*Dt*(thetaA**2-thetaB**2)*Mpc/24./3600.
         TD_sig=np.abs(self.TD_s*TD_t)
         return zl,zs,thetaE,sig_vv,thetaA/arcsec,thetaB/arcsec,TD_t,TD_sig
+    
+    def TDistance(self):
+        sgln=self.index
+        zl=self.sgl[sgln,0]
+        zs=self.sgl[sgln,1]
+        
+        Dl=self.ll.ang_dis_z(zl)
+        Ds=self.ll.ang_dis_z(zs)
+        Dls=self.ll.ang_dis_z2(zl,zs)
+        Dt=Dl*Ds/Dls*(1+zl)
+        return zl,zs,Dt,Dt*self.TD_s
     
     def magnifications(self):
         sgln=self.index

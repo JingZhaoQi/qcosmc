@@ -4,7 +4,7 @@ Created on Sat Mar 11 15:07:21 2017
 
 @author: jingzhao
 """
-
+__package__ = 'qcosmc'
 import numpy as np
 from scipy.integrate import quad,odeint
 from scipy.misc import derivative
@@ -12,6 +12,7 @@ from scipy.interpolate import UnivariateSpline,InterpolatedUnivariateSpline,sple
 #import transfer_func as tf
 from scipy.optimize import fsolve
 from scipy.constants import c,m_p,G,parsec
+import scipy.constants as sc
 from .Decorator import vectorize
 #from .SN import SN_likelihood
 #import os
@@ -19,14 +20,17 @@ Mpc=parsec*1e6
 #dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/'
 #like = SN_likelihood(dataDir+'full_long.dataset')
 class LCDM(object):
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,h=0.7,OmK=0.0,Omr0=None,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
         self.Om0 = np.float64(Om0)
         self.h = np.float64(h)
         self.OmK = OmK
         self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
-        self.Omega_r = self.Omega_r0
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
         
     @property
     def Omega_r0(self):
@@ -44,13 +48,38 @@ class LCDM(object):
     def Hz(self,z):
         return self.hubz(z)*self.h*1e2       #Mpc
     
-    def drift(self,z,yr):
-        mpc=Mpc*1e2
-        c=self.c0*1e2
-        year=yr*365.0*24.0*60.*60.
-        H0=self.h*1e7/mpc
-        return c*H0*year*(1-self.hubz(z)/(1+z))
+    def Drift(self,z,yr):
+        """
+        Drift as a function of redshift z and observed years
+
+        Parameters
+        ----------
+        z : redshift
+        yr : observed time in units of year
+
+        Returns drift in units of cm/s
+        
+        c~m/s, H0~km/s/Mpc, year~s
+        c*H0*year*1e5 ----> cm/s
+        """
+        year=yr*sc.year # s
+        H0=self.h*1e2/Mpc #km/s/Mpc
+        return c*H0*year*(1-self.hubz(z)/(1+z))*1e5 # cm/s
 	
+    @vectorize
+    def Drift_ELT(z):
+        if 2.<=z and z<=4.:
+            x=-1.7
+        elif z>4.0:
+            x=-0.9
+        else:
+            x=0
+            
+        SN=3000.
+        N=30.
+        dd=1.35*(2370/SN)/np.sqrt(N/30)*((1+z)/5)**x
+        return dd
+    
     def E2(self,z):
         return self.hubz(z)**2
 
@@ -247,12 +276,12 @@ class LCDM(object):
         d_l = self.co_dis_z(z)*(1.+z)
         return d_l
     
-    def MC_DL(self,z):
-        zz=np.arange(0,z.max()+0.1,0.1)
+    def MC_DL(self,z,step=0.1):
+        zz=np.arange(0,z.max()+step,step)
         return splev(z,splrep(zz,self.lum_dis_z(zz)))
     
-    def MC_DA(self,z):
-        zz=np.arange(0,z.max()+0.1,0.1)
+    def MC_DA(self,z,step=0.1):
+        zz=np.arange(0,z.max()+step,step)
         return splev(z,splrep(zz,self.ang_dis_z(zz)))
     
     def mu(self,z):
@@ -286,7 +315,7 @@ class LCDM(object):
     @vectorize
     def time_delay_dis(self,zl,zs):
         D_ds = self.ang_dis_z2(zl,zs)
-        return self.ang_dis_z(zl)*self.ang_dis_z(zs)/D_ds
+        return self.ang_dis_z(zl)*self.ang_dis_z(zs)/D_ds*(1+zl)
 
 
     @property
@@ -516,7 +545,7 @@ class LCDM(object):
 
 
 class wCDM(LCDM):
-    def __init__(self,Om0,w,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8,zz=np.arange(0,5,0.1)):
+    def __init__(self,Om0,w,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
         self.Om0 = np.float64(Om0)
         self.w = np.float64(w)
         self.h = np.float64(h)
@@ -525,7 +554,6 @@ class wCDM(LCDM):
         self.ns = np.float64(ns)
         self.sigma_8 = np.float64(sigma_8)
         self.Omega_r = self.Omega_r0
-        self.zz = zz
 
 
     def hubz(self,z):
@@ -584,9 +612,10 @@ class CPL(LCDM):
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
+        self.Omega_r = self.Omega_r0
 	
     def hubz(self,z):
-        return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(1.+z)**(3*(1+self.w0+self.wa))*np.exp(-3.*self.wa*(z/(1.+z))))
+        return np.sqrt(self.Om0*(1.+z)**3.+self.Omega_r*(1+z)**4+self.OmK*(1+z)**2 + (1.-self.Om0-self.Omega_r-self.OmK)*(1.+z)**(3*(1+self.w0+self.wa))*np.exp(-3.*self.wa*(z/(1.+z))))
     def wz(self,z):
         return self.w0+self.wa*z/(1.+z)
 

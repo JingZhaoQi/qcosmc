@@ -4,7 +4,7 @@ Created on Thu Aug 17 15:02:38 2017
 
 @author: jingzhao
 """
-
+__package__ = 'qcosmc'
 import numpy as np
 import emcee
 import os
@@ -13,8 +13,11 @@ import scipy.optimize as opt
 from time import strftime,localtime
 import matplotlib.pyplot as plt
 from getdist import MCSamples,loadMCSamples,plots
+from getdist.gaussian_mixtures import GaussianND
 from .FigStyle import qstyle
 from .Decorator import timer
+from multiprocessing import Pool
+os.environ["OMP_NUM_THREADS"] = "1"
 
 dd=np.dtype([('name',np.str_,16),('fit',np.float64),('lower',np.float64),('upper',np.float64)])
 
@@ -109,6 +112,24 @@ class MCMC_class(object):
             print('R[%s]-1='%i+'%s'%abs(R_c[i]-1))
         return R_c
 
+    def savefile(self,sampler,nwalkers):
+        chains_dir='./chains/'
+        if not os.path.exists(chains_dir):
+            os.makedirs(chains_dir)
+        
+        savefile_name='./chains/'+self.Chains_name+'.npy'
+        burnin = 100
+        samples = sampler.chain[:, burnin:, :].reshape((-1, self.n))
+        self.Rc(samples,nwalkers)
+        vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
+        self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
+        self.minkaf=self.chi2(self.theta_fit)
+        self.samples=samples
+        ranges=list(zip(self.params_all['lower'],self.params_all['upper']))
+        
+        np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num,ranges))
+        print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
+
     @timer
     def MCMC(self,steps=1000,nwalkers=100,nc=1e-4):
         print ('\n'+'=======================================================')
@@ -127,25 +148,36 @@ class MCMC_class(object):
         #print pos
         # Clear and run the production chain.
         print("Running MCMC...")
-        sampler.run_mcmc(pos, steps)
+        try:
+            sampler.run_mcmc(pos, steps, progress=True)
+        except ValueError:
+            print(pos)
+            raise ValueError("Probability function returned NaN")
         print("Done.")
+        self.savefile(sampler,nwalkers)
+        return sampler
+    
+    @timer
+    def MCMC_mul(self,steps=1000,nwalkers=100,nc=1e-4):
+        print ('\n'+'=======================================================')
+        print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
+        result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
+        self.theta_fit= result['x']
+        for i in range(self.n):
+            print("""The best-fit value of {0}={1}""".format(self.params_all['name'][i],self.theta_fit[i]))
         
-        chains_dir='./chains/'
-        if not os.path.exists(chains_dir):
-            os.makedirs(chains_dir)
+        self._check_err(self.params_all['fit'][0],self.theta_fit[0])
         
-        savefile_name='./chains/'+self.Chains_name+'.npy'
-        burnin = 100
-        samples = sampler.chain[:, burnin:, :].reshape((-1, ndim))
-        self.Rc(samples,nwalkers)
-        vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
-        self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
-        self.minkaf=self.chi2(self.theta_fit)
-        self.samples=samples
-        ranges=list(zip(self.params_all['lower'],self.params_all['upper']))
-        
-        np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num,ranges))
-        print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
+        # Set up the sampler.
+        ndim= self.n
+        pos = [result['x'] + nc*np.random.randn(ndim) for i in range(nwalkers)]
+        print("Running MCMC...")
+        with Pool() as pool:
+            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp, pool=pool)
+            sampler.run_mcmc(pos, steps, progress=True)
+        print("Done.")
+        self.savefile(sampler,nwalkers)
+        return sampler
 
     def check(self,*arg):
         if arg:
@@ -154,7 +186,7 @@ class MCMC_class(object):
             print('%s=%s'%(self.chi2.__name__,self.chi2(self.params_all['fit'])))
 
 
-qstyle(1)
+qstyle(0)
 colors=['#348ABD', '#A60628', '#467821', '#7A68A6',  '#E24A33' ,'#ffb3a6', '#188487']
 lss=['-','--','-.',':']
 outdir='./results/'
@@ -172,7 +204,7 @@ class MCplot(object):
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name)
+            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
             self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
@@ -181,7 +213,7 @@ class MCplot(object):
     def rename(self,new_name):
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name)
+            samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
             np.save(savefile_name,(samples,new_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
@@ -201,27 +233,38 @@ class MCplot(object):
 #            g.add_x_bands(0,0.01)
         if 'xaxis' in kwargs:
             ax.xaxis.set_major_locator(plt.MultipleLocator(kwargs['xaxis']))
-        plt.tight_layout()
+        if 'title' in kwargs:
+            ax.set_title(kwargs['title'])
+        # plt.tight_layout()
         g.export(os.path.join(outdir+''.join(self.root)+self.param_names[n-1].replace('\\','')+'_1D.pdf'))
         return g
     
     
     def plot2D(self,pp,colorn=0,contour_num=2,width_inch=8,**kwargs):
-        g = plots.getSinglePlotter(width_inch=width_inch,**kwargs)
+        g = plots.getSinglePlotter(width_inch=width_inch,ratio=1)
         g.settings.num_plot_contours = contour_num
-        g.settings.axes_fontsize = 12
+        g.settings.axes_fontsize = 14
         g.settings.lab_fontsize = 18
         g.settings.legend_frame = False
-        g.plot_2d(self.Samp,self.param_names[pp[0]-1],self.param_names[pp[1]-1],filled=True,colors=colors[colorn:colorn+self._n],**kwargs)
+        g.plot_2d(self.Samp,self.param_names[pp[0]-1],self.param_names[pp[1]-1],filled=True,**kwargs)
+        if 'x_locator' in kwargs:
+            ax=g.get_axes()
+            ax.xaxis.set_major_locator(plt.MultipleLocator(kwargs['x_locator']))
+            del kwargs['x_locator']
+        if 'y_locator' in kwargs:
+            ax=g.get_axes()
+            ax.yaxis.set_major_locator(plt.MultipleLocator(kwargs['y_locator']))
+            del kwargs['y_locator']
         if all(self.lengend):
-            g.add_legend(self.lengend,colored_text=True, fontsize=18)
-#        if 'lims' in kwargs:
-#            [xmin, xmax, ymin, ymax]=kwargs['lims']
-#            plt.xlim(xmin, xmax)
-#            plt.ylim(ymin, ymax)
+            g.add_legend(self.lengend,colored_text=True, fontsize=16,**kwargs)
+        if 'lims' in kwargs:
+            [xmin, xmax, ymin, ymax]=kwargs['lims']
+            plt.xlim(xmin, xmax)
+            plt.ylim(ymin, ymax)
+            del kwargs['lims']
         if 'x_marker' in kwargs:
             g.add_x_marker(kwargs['x_marker'],lw=1.5)
-        plt.tight_layout()
+        # plt.tight_layout()
         g.export(os.path.join(outdir,''.join(self.root)+'_2D.pdf'))
         return g
 
@@ -245,7 +288,10 @@ class MCplot(object):
         g.settings.lab_fontsize = 16
         g.settings.legend_frame = False
         g.settings.alpha_filled_add=0.8
-        g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,**kwargs)
+        if all(self.lengend):
+            g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,**kwargs)
+        else:
+            g.triangle_plot(self.Samp,t_name,filled_compare=True,contour_colors=colorss,**kwargs)
         if 'tline' in kwargs:
             for ax in g.subplots[:,0]:
                 ax.axvline(kwargs['tline'], color='red', ls='--',alpha=0.5)
@@ -300,6 +346,31 @@ class MCplot(object):
         return re
 
 
+class Fisherplot(MCplot):
+    def __init__(self,mean,Cov,labels,lengend='',nsample=1000000):
+        self.mean = mean
+        self.Cov = Cov
+        self.param_names = labels
+        self.lengend = [lengend]
+        self.nsample = nsample
+        self._n = 1
+        self.root = lengend
+        self.init()
+        self.aic_g=False
+    
+    def init(self):
+        gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.param_names)
+        self.Samp = [gauss.MCSamples(self.nsample)]
+    
+    def addCov(self,mean,Cov,lengend):
+        gauss=GaussianND(mean, Cov ,names = self.param_names, labels =self.param_names)
+        self.Samp.append(gauss.MCSamples(self.nsample))
+        self.lengend.append(lengend)
+        self._n = len(self.Samp)
+        self.root+=lengend
+    
+
+
 class CMCplot(MCplot):
     def __init__(self,Chains,ignore_rows=0.3):
         self.root=list(np.asarray(Chains)[:,0])
@@ -309,7 +380,7 @@ class CMCplot(MCplot):
         self._n = len(Chains)
         self.minkaf=np.zeros(self._n)
         self.data_num=np.zeros(self._n)
-        for i in range(self._n):
+        for i in list(range(self._n)):
             self.Samp.append(loadMCSamples('./chains/'+self.root[i], settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:

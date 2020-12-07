@@ -4,6 +4,7 @@ Created on Sat Sep 02 15:20:26 2017
 
 @author: jingzhao
 """
+__package__ = 'qcosmc'
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import splrep,splint,splev

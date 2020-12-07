@@ -4,14 +4,19 @@ Created on Sat Sep 29 15:23:05 2018
 
 @author: qijingzhao
 """
+__package__ = 'qcosmc'
 import numpy as np
 from .cos_models import *
 from scipy.integrate import quad
+from scipy.interpolate import InterpolatedUnivariateSpline
 import scipy.constants as sc
 import scipy.stats as stats
 import pandas as pd
+import os
 from .tools import simp_err,savetxt
 from astroML.density_estimation import FunctionDistribution
+
+dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/'
 #====================constants=================================
 Mpc=sc.parsec*1e6
 Msun=1.98847*1e30
@@ -433,6 +438,211 @@ class LgVg(object):
         DL,DL_s=self.GW_z(zzn,rand)
         return zzn,DL,DL_s
 
+
+class DECIGO(object):
+    def __init__(self,model_name='LCDM', params=[0.315,0.674],T=1):
+        self.ll=globals().get('%s'%model_name)(*params)
+        self.Tobs=T
+    
+    @staticmethod
+    def Sh2(f):
+        '''
+        Physical Review D 95, 109901(E) 2017
+        '''
+        fp=7.36
+        a=7.05*1e-48*(1+(f/fp)**2)
+        b=4.8*1e-51*f**(-4)/(1+(f/fp)**2)
+        c=5.33*1e-52*f**(-4)
+        return a+b+c
+    
+    @staticmethod
+    def Sh(f):
+        '''
+        Physical Review D 83,044011 2011
+
+        '''
+        fp=7.36
+        a=6.53*1e-49*(1+(f/fp)**2)
+        b=4.45*1e-51*f**(-4)/(1+(f/fp)**2)
+        c=4.94*1e-52*f**(-4)
+        return a+b+c
+    
+    @staticmethod
+    def t_f_normal(f,m1,m2,z):
+        '''
+        Physical Review D 83,044011 2011
+        Equation (30)
+
+        '''
+        M=m1+m2
+        eta=m1*m2/M**2
+        Mc_phys=M*eta**(3.0/5.0)
+        Mc_obs=(1+z)*Mc_phys
+        x=np.power(np.pi*(1+z)*M*f,2/3)
+        tc=0
+        a=5/256*Mc_obs*(np.pi*Mc_obs*f)**(-8/3)
+        b=(1+4/3*(743/336+11/4*eta))*x-32/5*np.pi*np.power(x,1.5)
+        c=2*(3058673/1016064+5429/1008*eta+617/144*eta**2)*x**2
+        return tc-a*(b+c)
+    
+    @staticmethod
+    def t_f(f,m1,m2,z):
+        '''
+        Physical Review D 83,044011 2011
+        Equation (31)
+
+        '''
+        M=m1+m2
+        eta=m1*m2/M**2
+        Mc_phys=M*eta**(3.0/5.0)
+        return 1.04*1e7*np.power((1+z)/2,-5/3)*np.power(Mc_phys/1.22/Msun,-5/3)*np.power(f/0.2,-8/3)
+    
+    def _F1plus(self,cos_theta,phi,psi):
+        a=(1+cos_theta**2)*np.cos(2*phi)*np.cos(2*psi)/2.0
+        b=cos_theta*np.sin(2*phi)*np.sin(2*psi)
+        return a-b
+    
+    def _F1mul(self,cos_theta,phi,psi):
+        a=(1+cos_theta**2)*np.cos(2*phi)*np.sin(2*psi)/2.0
+        b=cos_theta*np.sin(2*phi)*np.cos(2*psi)
+        return a+b
+    
+
+    def _F2plus(self,theta,phi,psi):
+        return self._F1plus(theta,phi-np.pi/4,psi)
+    
+    def _F2mul(self,theta,phi,psi):
+        return self._F1mul(theta,phi-np.pi/4,psi)
+
+    def Int_sh(self,f):
+        return f**(-7/3)/self.Sh(f)
+
+# =============================================================================
+#=============================================================================
+    def __snr(self,z):
+        rho=0.0
+        while rho<=8.0:
+            # m1=np.random.uniform(m1_range[0],m1_range[1])*Msun
+            # m2=np.random.uniform(m2_range[0],m2_range[1])*Msun
+            m1=m2=1.4*Msun
+            M=m1+m2
+            eta=m1*m2/M**2
+            Mc_phys=M*eta**(3.0/5.0)
+            Mc_obs=(1+z)*Mc_phys
+            theta=np.random.uniform(0,np.pi)
+            phi=np.random.uniform(0,2*np.pi)
+            iota=0.0
+            psi=np.pi/4
+            f_lower=0.233*np.power(Msun/Mc_obs,5/8)*np.power(1/self.Tobs,3/8) #Physical Review D 83,084045 2011 Eq.(15)
+            f_upper=100
+            
+            t=self.t_f(f_lower,m1,m2,z)-self.t_f(f_upper,m1,m2,z)
+            phi_t=2*np.pi*t/sc.year
+            cosTS=np.cos(theta)/2-np.sqrt(3)/2*np.sin(theta)*np.cos(phi_t-phi) #Physical Review D 83,084045 2011 Eq.(A1)
+            phiSt=np.pi/12+np.arctan((np.sqrt(3)*np.cos(theta)+np.sin(theta)*np.cos(phi_t-phi))/(2*np.sin(theta)*np.sin(phi_t-phi)))  #Physical Review D 83,084045 2011 Eq.(A2)
+            
+            A1=np.sqrt(self._F1plus(cosTS,phiSt,psi)**2*(1+np.cos(iota)**2)**2+4*self._F1mul(cosTS,phiSt,psi)**2*
+                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc*\
+                       np.power(sc.G,5/6)*sc.c**(-1.5)
+            A2=np.sqrt(self._F2plus(cosTS,phiSt,psi)**2*(1+np.cos(iota)**2)**2+4*self._F2mul(cosTS,phiSt,psi)**2*
+                       np.cos(iota)**2)*np.sqrt(5*np.pi/96)*np.pi**(-7/6)*Mc_obs**(5/6)/self.ll.lum_dis_z(z)/Mpc*\
+                       np.power(sc.G,5/6)*sc.c**(-1.5)
+            ET1=4*quad(self.Int_sh,f_lower,f_upper)[0]*A1**2
+#            ET1=2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*A1**2*Nconst)
+            ET2=4*quad(self.Int_sh,f_lower,f_upper)[0]*A2**2
+            rho=np.sqrt(ET1+ET2)
+#        self.count+=1
+#        print(self.count)
+        return z,m1/Msun,m2/Msun,theta,phi,rho
+#====================分布函数=================================
+    def Pz(self,z):
+        def Rz(z):
+            if z<=1:
+                r=1.+2.*z
+            elif 1<z<5:
+                    r=3.*(5.-z)/4.
+            else:
+                r=0.0
+            return r
+        R=np.vectorize(Rz)
+        return 4.*np.pi*self.ll.d_z(z)**2*R(z)/self.ll.hubz(z)/(1.0+z)
+
+    def GWz(self,zz,rand='normal'):
+        Dd=np.zeros(len(zz))-1
+        while (Dd<=0).any():
+            self.z,self.m1,self.m2,self.theta,self.phi,self.rho=np.vectorize(self.__snr)(zz)
+            DL=self.ll.lum_dis_z(self.z)
+            self.inst=DL/self.rho
+            self.lens=DL*0.066*np.power((1-(1+self.z)**(-0.25))/0.25,1.8)
+            self.pv=DL*np.abs(1/sc.c*1e3-(1+self.z)**2/self.ll.Hz(self.z)/DL)*300
+            DL_err=np.sqrt((self.inst)**2+(self.lens)**2+(self.pv)**2)
+            
+            # DL_err=np.sqrt((DL/self.rho)**2+(DL*0.066*np.power((1-(1+self.z)**(-0.25))/0.25,1.8))**2+
+            #                 (DL*np.abs(1/sc.c*1e3-(1+self.z)**2/self.ll.Hz(self.z)/DL)*300)**2)
+            if rand=='normal':
+                DL_mean=np.random.normal(DL,DL_err)
+            elif rand=='1sigma':
+                DL_mean=stats.truncnorm(-1,1,loc=DL,scale=DL_err).rvs()
+            elif rand=='None':
+                DL_mean=DL
+            else:
+                print('The input of random is wrong.')
+            Dd=DL_mean-DL_err
+        self.DL=DL_mean
+        self.DL_err = DL_err
+        return self.z ,DL_mean,DL_err
+
+
+    def GW(self,zlow=0,zup=5,num=1000,rand='normal'):
+#        self.count=0
+#        if type(self._GW_type)==str:
+#            if zup>self.z_max: zup=self.z_max
+        z,snh,snl=np.loadtxt(dataDir+'NSNSrates.dat',usecols=(1, 2,3),skiprows=1,unpack=True)
+        Pz=InterpolatedUnivariateSpline(z[::-1],snh[::-1])
+        zzn=FunctionDistribution(self.Pz,zlow,zup,num).rvs(num)
+        zz,DL_mean,DL_err = self.GWz(zzn,rand)
+        return zz,DL_mean,DL_err
+
+    def Hz(self):
+        v0=369.1
+        dL1=v0*(1+self.z)**2/self.ll.Hz(self.z)
+        Hz_s=self.ll.Hz(self.z)*np.sqrt(3)*(self.DL_err/self.DL)/(dL1/self.DL)
+        Hz=self.ll.Hz(z)
+        return self.z,Hz,Hz_s
+
+    def save_fulldata(self,path_file_name):
+        st=['#z','m1','m2','theta','phi','snr']
+        try:
+            if self.z.any():
+                data=(self.z,self.m1,self.m2,self.theta,self.phi,self.rho)
+                dc=dict(zip(st,data))
+                df=pd.DataFrame(dc)
+                if path_file_name[-3:]=='lsx':
+                    df.to_excel(path_file_name,index=False)
+                elif path_file_name[-3:]=='txt':
+                    df.to_csv(path_file_name,index=False,sep=' ')
+                else:
+                    df.to_excel(path_file_name+'.xlsx',index=False)
+        except AttributeError:
+            print('Please run the GW_z function firstly!')
+    
+    def save_DL(self,path_file_name):
+#        st=['#z','DL','DL_err']
+        try:
+            if self.z.any():
+                savetxt(path_file_name,[self.z,self.DL,self.DL_err])
+#                data=(self.z,self.DL,self.DL_err)
+##                dc=dict(zip(st,data))
+#                dc=dict(data)
+#                df=pd.DataFrame(dc)
+#                if path_file_name[-3:]=='lsx':
+#                    df.to_excel(path_file_name,index=False)
+#                elif path_file_name[-3:]=='txt':
+#                    df.to_csv(path_file_name,index=False,sep=' ')
+#                else:
+#                    df.to_csv(path_file_name,index=False,sep=' ')
+        except AttributeError:
+            print('Please run the GW_z function firstly!')
 
 #class LISA(object):
 #    
