@@ -354,7 +354,7 @@ class Fisherplot(MCplot):
         self.lengend = [lengend]
         self.nsample = nsample
         self._n = 1
-        self.root = lengend
+        self.root = [lengend]
         self.init()
         self.aic_g=False
     
@@ -367,7 +367,7 @@ class Fisherplot(MCplot):
         self.Samp.append(gauss.MCSamples(self.nsample))
         self.lengend.append(lengend)
         self._n = len(self.Samp)
-        self.root+=lengend
+        self.root.append(lengend)
     
 
 
