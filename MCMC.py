@@ -304,7 +304,8 @@ class MCplot(object):
         if 'xlim' in kwargs:
             for xi in kwargs['xlim']:
                 for ax in g.subplots[:,xi[0]-1]:
-                    ax.set_xlim(xi[1][0],xi[1][1])
+                    if ax is not None:
+                        ax.set_xlim(xi[1][0],xi[1][1])
         g.export(os.path.join(outdir,''.join(self.root)+'_tri.pdf'))
         return g
     
