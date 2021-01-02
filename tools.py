@@ -16,6 +16,13 @@ from .FigStyle import qplt
 dd=np.dtype([('name',np.str_,16),('num',np.int),('lower',np.float64),('upper',np.float64)])
 
 
+def partial_derivative(func, var=0, point=[]):
+    args = point[:]
+    def wraps(x):
+        args[var] = x
+        return func(*args)
+    return derivative(wraps, point[var], dx = 1e-6)
+
 def mean(mu,sig):
     mubar=np.sum(mu/sig**2)/np.sum(1./sig**2)
     sigbar=np.sqrt(1./np.sum(1./sig**2))

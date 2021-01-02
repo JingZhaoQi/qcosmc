@@ -192,7 +192,7 @@ lss=['-','--','-.',':']
 outdir='./results/'
 
 class MCplot(object):
-    def __init__(self,Chains,ignore_rows=0.3):
+    def __init__(self,Chains,ignore_rows=0.1):
         self.root=list(np.asarray(Chains)[:,0])
         self.lengend=list(np.asarray(Chains)[:,1])
         self.aic_g=True
@@ -204,7 +204,8 @@ class MCplot(object):
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
+            self.samples,theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
+            self.theta_name=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in theta_name]
             self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
@@ -236,7 +237,10 @@ class MCplot(object):
         if 'title' in kwargs:
             ax.set_title(kwargs['title'])
         # plt.tight_layout()
-        g.export(os.path.join(outdir+''.join(self.root)+self.param_names[n-1].replace('\\','')+'_1D.pdf'))
+        if 'name' in kwargs:
+            g.export(os.path.join(outdir,'%s.pdf'%kwargs['name']))
+        else:
+            g.export(os.path.join(outdir+''.join(self.root)+self.param_names[n-1].replace('\\','')+'_1D.pdf'))
         return g
     
     
@@ -255,8 +259,6 @@ class MCplot(object):
             ax=g.get_axes()
             ax.yaxis.set_major_locator(plt.MultipleLocator(kwargs['y_locator']))
             del kwargs['y_locator']
-        if all(self.lengend):
-            g.add_legend(self.lengend,colored_text=True, fontsize=16,**kwargs)
         if 'lims' in kwargs:
             [xmin, xmax, ymin, ymax]=kwargs['lims']
             plt.xlim(xmin, xmax)
@@ -264,8 +266,15 @@ class MCplot(object):
             del kwargs['lims']
         if 'x_marker' in kwargs:
             g.add_x_marker(kwargs['x_marker'],lw=1.5)
+        if all(self.lengend):
+            kwarg=kwargs.copy()
+            if 'name' in kwarg: del kwarg['name']
+            g.add_legend(self.lengend,colored_text=True, fontsize=16,**kwarg)
         # plt.tight_layout()
-        g.export(os.path.join(outdir,''.join(self.root)+'_2D.pdf'))
+        if 'name' in kwargs:
+            g.export(os.path.join(outdir,'%s.pdf'%kwargs['name']))
+        else:
+            g.export(os.path.join(outdir,''.join(self.root)+'_2D.pdf'))
         return g
 
 
@@ -281,15 +290,15 @@ class MCplot(object):
             t_name=[]
             for i in pp:
                 t_name.append(self.param_names[i-1])
-        g = plots.getSubplotPlotter(width_inch=9)
+        g = plots.get_subplot_plotter(width_inch=9)
         g.settings.num_plot_contours = contour_num
-        g.settings.legend_fontsize = 18
-        g.settings.axes_fontsize = 12
-        g.settings.lab_fontsize = 16
-        g.settings.legend_frame = False
+        g.settings.legend_fontsize = 20
+        g.settings.axes_fontsize = 14
+        g.settings.lab_fontsize = 18
+        g.settings.figure_legend_frame = False
         g.settings.alpha_filled_add=0.8
         if all(self.lengend):
-            g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,**kwargs)
+            g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,legend_loc='upper right',**kwargs)
         else:
             g.triangle_plot(self.Samp,t_name,filled_compare=True,contour_colors=colorss,**kwargs)
         if 'tline' in kwargs:
@@ -306,7 +315,10 @@ class MCplot(object):
                 for ax in g.subplots[:,xi[0]-1]:
                     if ax is not None:
                         ax.set_xlim(xi[1][0],xi[1][1])
-        g.export(os.path.join(outdir,''.join(self.root)+'_tri.pdf'))
+        if 'name' in kwargs:
+            g.export(os.path.join(outdir,'%s.pdf'%kwargs['name']))
+        else:
+            g.export(os.path.join(outdir,''.join(self.root)+'_tri.pdf'))
         return g
     
     @property
