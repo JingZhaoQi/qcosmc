@@ -373,7 +373,7 @@ class Fisherplot(MCplot):
         self.aic_g=False
     
     def init(self):
-        self.param_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
+        # self.param_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
         gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.param_names)
         self.Samp = [gauss.MCSamples(self.nsample)]
     
