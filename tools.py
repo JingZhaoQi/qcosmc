@@ -16,12 +16,210 @@ from .FigStyle import qplt
 dd=np.dtype([('name',np.str_,16),('num',np.int),('lower',np.float64),('upper',np.float64)])
 
 
-def partial_derivative(func, var=0, point=[]):
+
+def get_errors(FF):
+    if FF.ndim == 2:
+        cov=np.linalg.inv(FF)
+        err=np.sqrt(cov.diagonal())
+    elif FF.ndim==3:
+        n=FF.shape[0]
+        err=np.zeros((FF.shape[1],FF.shape[0]))
+        for i in range(n):
+            cov=np.linalg.inv(FF[i])
+            err[:,i]=np.sqrt(cov.diagonal())
+    else:
+        raise ValueError("Matrix.ndim should be 2 or 3.")
+    return err
+
+def Fisher2Fisher(z,equa,param,FF):
+    '''
+    Calculate a new Fisher marix by using the transformation matrix
+
+    Parameters
+    ----------
+    z : float or array
+        redshift.
+    equa : list
+        The list of function names, for example [fsig8,DA,Hz]
+    param : list
+        The list of parameter values, for example [70,0.3,-1,0] are the values of H0, Omega_m0, w0, wa, respectively, which are the parameters of fsig8, DA, Hz.
+    FF : Matrix
+       old Fisher.
+
+    Returns
+    -------
+    Fab2 : Matrix
+        new Fisher.
+
+    '''
+    if type(z)==list: z=np.asarray(z)
+    if type(z) != np.ndarray:
+        MM=transformation_matrix(z,equa,param)
+        Fab2=MM.T@FF@MM
+    else:
+        Fab2=0
+        for i,Fs in enumerate(FF):
+            MM=transformation_matrix(z[i],equa,param)
+            Fab2+=MM.T@Fs@MM
+    return Fab2
+
+def fix_param_Fisher(Fisher,var):
+    return del_diag(Fisher, var)
+
+def add_priors(Fisher, var, error):
+    '''
+    add a prior of parameter and get a new Fisher
+
+    Parameters
+    ----------
+    Fisher : Matrix
+        
+    var : int
+        the i-th variable.
+    error : float
+        the uncertainty of corresponding variable
+
+    Returns
+    -------
+    Fisher : TYPE
+        DESCRIPTION.
+
+    '''
+    Fisher[var,var]=Fisher[var,var]+1/error**2
+    return Fisher
+
+def marginalization(Fisher,var):
+    '''
+    marginalize over a variable of the given Fisher matrix and return a new Fisher matrix
+
+    Parameters
+    ----------
+    Fisher : Matrix
+        The Fisher matrix to be marginalized
+    var : int
+        the i-th variable.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    '''
+    cov=Fisher.I
+    New_cov=del_diag(cov,var)
+    return New_cov.I
+
+def Fisher(z,func,params,df):
+    '''
+    
+    Parameters
+    ----------
+    z : float or numpy.ndarray
+        redshift
+    func : function
+        the function to be derivated
+    params : list
+        a list of parameters list to function excepting for redshift
+    df : float
+        the uncertainty of function value
+
+    Returns
+    -------
+    a Fisher matrix
+    '''
+    if type(z) != np.ndarray:
+        return Fisherz(z,func,params,df)
+    else:
+        if len(z)!= df.size:
+            raise ValueError("The type of 'df' must be array if 'z' you input is array.")
+        FF=0
+        for i,Fs in enumerate(z):
+            FF+=Fisherz(z[i],func,params,df[i])
+        return FF
+
+def Fisherz(z,func,params,df):
+    
+    '''
+    Parameters
+    ----------
+    z : float
+        redshift
+    func : function
+        the function to be derivated
+    params : list
+        a list of parameters list to function excepting for redshift
+    df : float
+        the uncertainty of function value
+
+    Returns
+    -------
+    a Fisher matrix
+
+    '''
+    n=len(params)
+    FF=np.zeros((n,n))
+    for i in range(n):
+        F1=partial_derivative(func,i,[*params,z])
+        for j in range(i,n):
+            F2=partial_derivative(func,j,[*params,z])
+            FF[i,j]=F1*F2
+    FF += FF.T - np.diag(FF.diagonal())
+    return np.matrix(FF)/df**2
+ 
+def transformation_matrix(z,equa,param):
+    '''
+    Calculate the transformation matrix
+
+    Parameters
+    ----------
+    z : float
+        redshift
+    equa : list
+        The list of function names, for example [fsig8,DA,Hz]
+    param : list
+        The list of parameter values, for example [70,0.3,-1,0] are the values of H0, Omega_m0, w0, wa, respectively, which are the parameters of fsig8, DA, Hz.
+
+    Returns
+    -------
+    transformation matrix
+    
+    for example
+    [dfsig8/dH0, dfsig8/dOmega_m0, dfsig8/dw0, dfsig8/dwa]
+    [dDA/dH0, dDA/dOmega_m0, dDA/dw0, dDA/dwa]
+    [dHz/dH0, dHz/dOmega_m0, dHz/dw0, dHz/dwa]
+    
+    '''
+    en=len(equa)
+    pn=len(param)
+    M=np.zeros((en,pn))
+    for i,fun in enumerate(equa):
+        for j, par in enumerate(param):
+            M[i,j]=partial_derivative(fun,j,[*param,z])
+    return np.matrix(M)
+
+def del_diag(matrix,i):
+    '''
+    Delete i-th row and column from the matrix.
+    del_diag(a,1) or del_diag(a,[1,2])
+    
+    Parameters
+    ----------
+    matrix : 2-D array
+    i : integer or list of integer
+
+    Returns
+    -------
+    2-D array
+        a new matrix.
+    '''
+    return np.delete(np.delete(matrix,i,1),i,0)
+
+def partial_derivative(func, var=0, point=[],dx=1e-6):
     args = point[:]
     def wraps(x):
         args[var] = x
         return func(*args)
-    return derivative(wraps, point[var], dx = 1e-6)
+    return derivative(wraps, point[var], dx = dx)
 
 def mean(mu,sig):
     mubar=np.sum(mu/sig**2)/np.sum(1./sig**2)
