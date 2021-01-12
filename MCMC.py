@@ -204,9 +204,9 @@ class MCplot(object):
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            self.samples,theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
-            self.theta_name=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in theta_name]
-            self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
+            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
+            self.label_name=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.theta_name]
+            self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.label_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
@@ -373,8 +373,8 @@ class Fisherplot(MCplot):
         self.aic_g=False
     
     def init(self):
-        # self.param_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
-        gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.param_names)
+        self.label_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
+        gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.label_names)
         self.Samp = [gauss.MCSamples(self.nsample)]
     
     def addCov(self,mean,Cov,lengend):
