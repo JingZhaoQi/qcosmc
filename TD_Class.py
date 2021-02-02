@@ -491,6 +491,14 @@ class TD(object):
         return -self.log_prob_ddt(cosmo)*2
     
     
+    @property
+    def zl(self):
+        return np.array([z.zlens for z in self.lenses])
+    
+    @property
+    def zs(self):
+        return np.array([z.zsource for z in self.lenses])
+    
     # def sample_params(self, nwalkers=32, nsamples=20000, save=True, filepath="temp.pkl", cluster = False):
     #     """
     #     High-level wrapper around the above functions. Explore the cosmological parameters space and

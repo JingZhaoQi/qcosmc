@@ -20,7 +20,7 @@ Mpc=parsec*1e6
 #dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/'
 #like = SN_likelihood(dataDir+'full_long.dataset')
 class LCDM(object):
-    def __init__(self,Om0,h=0.7,OmK=0.0,Omr0=None,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.h = np.float64(h)
         self.OmK = OmK
@@ -67,7 +67,7 @@ class LCDM(object):
         return c*H0*year*(1-self.hubz(z)/(1+z))*1e5 # cm/s
 	
     @vectorize
-    def Drift_ELT(z):
+    def Drift_ELT(self,z):
         if 2.<=z and z<=4.:
             x=-1.7
         elif z>4.0:
@@ -76,7 +76,7 @@ class LCDM(object):
             x=0
             
         SN=3000.
-        N=30.
+        N=6
         dd=1.35*(2370/SN)/np.sqrt(N/30)*((1+z)/5)**x
         return dd
     
@@ -448,47 +448,82 @@ class LCDM(object):
     end statefinder
     """
 
-    a11 = np.linspace(0.001,1,1000)
-
-    def deriv(self,y,a):
-        return [ y[1], -(3./a + self.hubpa(a)/self.huba(a))*y[1] + 1.5*self.om_a(a)*y[0]/(a**2.)]
-
-    def sol1(self):
-        yinit = (0.001,1.)
-        return odeint(self.deriv,yinit,self.a11)
-
-    def D_p(self,a):
-        yn11=self.sol1()[:,0]
-        ynn11=UnivariateSpline(self.a11,yn11,k=3,s=0)
-        return ynn11(a)
-
-    def D_plus_a(self,a):
-        return self.D_p(a)/self.D_p(1.0)
-
-    def D_plus_z(self,z):
-        """
-        Normalized solution for the growing mode as a function of redshift
-        """
-        return self.D_plus_a(1./(1.+z))
-
-    def growth_rate_a(self,a):
-        d = self.sol1()[:,:]
-        d1 = d[:,0]
-        dp = d[:,1]
-        gr1 = UnivariateSpline(self.a11,self.a11*dp/d1,k=3,s=0)
-        return gr1(a)
-
+    def gamma(self,z):
+        '''
+        The growth index parameter
+        L.-M. Wang and P.J. Steinhardt, Cluster abundance constraints on quintessence models,
+        Astrophys. J. 508 (1998) 483 [astro-ph/9804015]
+        '''
+        w=self.wz(z)
+        a=3/(5-w/(1-w))
+        b=(1-w)*(1-1.5*w)/np.power(1-6/5*w,3)
+        return a+3/125*b*(1-self.om_z(z))
+    
     def growth_rate_z(self,z):
-        """
-        Growth Rate f = D log(Dplus)/ D Log(a) as a function of redshift
-        """
-        return self.growth_rate_a(1./(1.+z))
-
+        '''
+        The growth rate f = dlog(delta)/dlog(a) ≈ Omegam(z)**gamma
+        '''
+        return np.power(self.om_z(z),self.gamma(z))
+    
+    @vectorize
+    def growth_factor(self,z):
+        '''
+        The growth factor
+        f = dlog(D)/dlog(a)
+        D=exp(-f/(1+z))
+        D(z=0)=1
+        '''
+        fz=lambda z : self.growth_rate_z(z)/(1+z)
+        ff=quad(fz,0,z)[0]
+        return np.exp(-ff)
+    
     def fsigma8z(self,z):
-        """
-        fsigma_{8} as a function of redshift
-        """
-        return self.growth_rate_z(z)*self.D_plus_z(z)*self.sigma_8
+        return self.growth_rate_z(z)*self.growth_factor(z)*self.sigma_8
+    
+    def MC_fsigma8(self,z,step=0.1):
+        zz=np.arange(0,z.max()+step,step)
+        return splev(z,splrep(zz,self.fsigma8z(zz)))
+    # a11 = np.linspace(0.001,1,1000)
+
+    # def deriv(self,y,a):
+    #     return [ y[1], -(3./a + self.hubpa(a)/self.huba(a))*y[1] + 1.5*self.om_a(a)*y[0]/(a**2.)]
+
+    # def sol1(self):
+    #     yinit = (0.001,1.)
+    #     return odeint(self.deriv,yinit,self.a11)
+
+    # def D_p(self,a):
+    #     yn11=self.sol1()[:,0]
+    #     ynn11=UnivariateSpline(self.a11,yn11,k=3,s=0)
+    #     return ynn11(a)
+
+    # def D_plus_a(self,a):
+    #     return self.D_p(a)/self.D_p(1.0)
+
+    # def D_plus_z(self,z):
+    #     """
+    #     Normalized solution for the growing mode as a function of redshift
+    #     """
+    #     return self.D_plus_a(1./(1.+z))
+
+    # def growth_rate_a(self,a):
+    #     d = self.sol1()[:,:]
+    #     d1 = d[:,0]
+    #     dp = d[:,1]
+    #     gr1 = UnivariateSpline(self.a11,self.a11*dp/d1,k=3,s=0)
+    #     return gr1(a)
+
+    # def growth_rate_z(self,z):
+    #     """
+    #     Growth Rate f = D log(Dplus)/ D Log(a) as a function of redshift
+    #     """
+    #     return self.growth_rate_a(1./(1.+z))
+
+    # def fsigma8z(self,z):
+    #     """
+    #     fsigma_{8} as a function of redshift
+    #     """
+    #     return self.growth_rate_z(z)*self.D_plus_z(z)*self.sigma_8
 	
 	# Defining window function
 
@@ -545,7 +580,7 @@ class LCDM(object):
 
 
 class wCDM(LCDM):
-    def __init__(self,Om0,w,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8 = 0.8):
+    def __init__(self,Om0,w,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.w = np.float64(w)
         self.h = np.float64(h)
@@ -568,7 +603,7 @@ class Cosmography(LCDM):
     """
     Cosmography
     """
-    def __init__(self,q0,j0,s0,h=0.7,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,q0,j0,s0,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.q0 = np.float64(q0)
         self.j0 = np.float64(j0)
         self.s0 = np.float64(s0)
@@ -603,7 +638,7 @@ class CPL(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
@@ -623,7 +658,7 @@ class Geos(LCDM):
     """
     arXiv:0905.4052V2
     """
-    def __init__(self,Om0,w0,wa,beta,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,beta,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
@@ -661,7 +696,7 @@ class GCG(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,As,alpha,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,As,alpha,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.As = np.float64(As)
         self.alpha = np.float64(alpha)
@@ -685,7 +720,7 @@ class JBP(LCDM):
     for which equation of state w is parametrized as:
     w(a) = w0 + wa*z/(1+z)^2
     """
-    def __init__(self,Om0,w0,wa,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,w0,wa,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.w0 = np.float64(w0)
         self.wa = np.float64(wa)
@@ -713,7 +748,7 @@ class DGP(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,h=0.7,OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02237,ns=0.965,sigma_8 = 0.811):
         self.Om0 = np.float64(Om0)
         self.OmK = OmK
         self.Ob0h2 = np.float64(Ob0h2)

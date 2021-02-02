@@ -151,6 +151,7 @@ class MCMC_class(object):
         try:
             sampler.run_mcmc(pos, steps, progress=True)
         except ValueError:
+            self.test=sampler
             print(pos)
             raise ValueError("Probability function returned NaN")
         print("Done.")
@@ -359,6 +360,41 @@ class MCplot(object):
             print(',  '.join(re[i:i+n])+'\n')
         return re
 
+    @property
+    def results2(self):
+        re=[]
+        for k in range(self._n):
+            n=len(self.Samp[k].getParamNames().names)
+            pnames=self.label_name
+            plt.figure(figsize=(10,6+(n-1)), dpi=90)
+            plt.axes([0.025,0.025,0.95,0.95])
+            plt.xticks([]), plt.yticks([])
+            plt.text(0.1,0.9,'The results of "{0}" are:'.format(self.root[k].replace('_',' ')), fontsize=18)
+            plt.text(0.5,0.83,'$1\sigma$',fontsize=14)
+            # plt.text(0.7,0.83,'$2\sigma$',fontsize=14)
+            size = 20
+            for i in range(n):
+                mcmc = np.percentile(self.Samp[k].samples[:, i], [16, 50, 84])
+                q = np.diff(mcmc)
+                txt = "$\mathrm{{{3}}} = {0:.3f}_{{-{1:.3f}}}^{{+{2:.3f}}}$"
+                tt = txt.format(mcmc[1], q[0], q[1], pnames[i])
+                # tt='$%s$'%(self.Samp[k].getInlineLatex(pnames[i].name,limit=1))
+                re.append(tt)
+                x,y = (0.2,0.75-i*0.12)
+                plt.text(x,y,tt, fontsize=size)
+            if self.aic_g:
+                aic="$\mathrm{{AIC}}$=${0}$".format(round(self.minkaf[k]+2.0*n,3))
+                bic="$\mathrm{{BIC}}$=${0}$".format(round(self.minkaf[k]+n*np.log(self.data_num[k]),3))
+                kafm="$\chi^2_{{min}}$=${0}$".format(round(self.minkaf[k],3))
+                dof="$\chi^2_{{min}}/d.o.f.$=${0}$".format(round(self.minkaf[k]/(n+self.data_num[k]),3))
+                plt.text(0.1,0.8-(n+1)*0.11,kafm,fontsize=size)
+                plt.text(0.6,0.8-(n+1)*0.11,dof,fontsize=size)
+                plt.text(0.1,0.8-(n+2)*0.11,aic,fontsize=size)
+                plt.text(0.6,0.8-(n+2)*0.11,bic,fontsize=size)
+            plt.savefig(outdir+self.root[k]+'_results2.png',dpi=300)
+        for i in range(self._n):
+            print(',  '.join(re[i:i+n])+'\n')
+        return re
 
 class Fisherplot(MCplot):
     def __init__(self,mean,Cov,labels,lengend='',nsample=1000000):
