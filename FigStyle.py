@@ -54,9 +54,9 @@ aaa={'axes.axisbelow': True,
     'ytick.major.size': 4 ,
     'ytick.minor.size': 2,
     'ytick.labelsize' : 13,
-    'legend.fancybox'      : False,
-    'legend.numpoints'    : 1,
-    'legend.fontsize'  : 16,
+    'legend.fancybox' : False,
+    'legend.numpoints': 1,
+    'legend.fontsize' : 16,
     'legend.frameon' : False}
 
 def qplt(*args, **kwargs):
@@ -105,19 +105,22 @@ def qplt(*args, **kwargs):
     if s:
         mpl.pyplot.savefig(s)
 
-def qstyle(tex=False,rc={}):
+def qstyle(tex=False,rc={},pal=False,color=''):
 #    sns.reset_defaults()
 #    sns.set(style="ticks")
-    color=['#348ABD', '#7A68A6',  '#E24A33', '#467821' ,'#ffb3a6', '#188487', '#A60628']
-    sns.color_palette(color)
+    # color=['#348ABD', '#7A68A6',  '#E24A33', '#467821' ,'#ffb3a6', '#188487', '#A60628']
+    if not color:
+        color=sns.color_palette("muted")
     mpl.rc('text', usetex=tex)
     mpl.rcParams['mathtext.fontset'] = 'cm'
     mpl.rcParams['mathtext.rm'] = 'serif'
     aaa.update(rc)
     sns.set_style(aaa)
-    mpl.rcParams['xtick.labelsize'] = 11
-    mpl.rcParams['ytick.labelsize'] = 11
+    mpl.rcParams['xtick.labelsize'] = 12
+    mpl.rcParams['ytick.labelsize'] = 12
     mpl.rcParams['axes.labelsize'] = 16
+    if pal:
+        sns.palplot(sns.color_palette(color))
     return color
 
 def snstyle(tex=False,stl='ticks',rc={}):

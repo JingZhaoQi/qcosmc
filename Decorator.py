@@ -8,7 +8,7 @@ import numpy as np
 #import matplotlib.pyplot as plt
 import functools
 import collections
-from time import clock
+from time import process_time as clock
 import os
 import pickle as pickle
 

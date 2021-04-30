@@ -226,7 +226,7 @@ class MCplot(object):
         g.plot_1d(self.Samp,self.param_names[n-1],ls=lss,colors=colors[colorn:colorn+self._n],lws=[1.5]*self._n,**kwargs)
         ax=plt.gca()
         if all(self.lengend):
-            leg = ax.legend(self.lengend,loc=1,fontsize=16)
+            leg = ax.legend(self.lengend,loc=0,fontsize=16)
             for line,text in zip(leg.get_lines(), leg.get_texts()):
                 text.set_color(line.get_color())
         if 'x_marker' in kwargs:
@@ -293,7 +293,7 @@ class MCplot(object):
                 t_name.append(self.param_names[i-1])
         g = plots.get_subplot_plotter(width_inch=9)
         g.settings.num_plot_contours = contour_num
-        g.settings.legend_fontsize = 20
+        g.settings.legend_fontsize = 18
         g.settings.axes_fontsize = 14
         g.settings.lab_fontsize = 18
         g.settings.figure_legend_frame = False
@@ -451,3 +451,4 @@ class CMCplot(MCplot):
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
+        self.label_name = self.param_names
