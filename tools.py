@@ -322,30 +322,6 @@ def redshift_match(z,target_z,error):
     return zn,tar_zn
 
 def redshift_match_SGL(zl,zs,qz,err=5e-3):
-    '''
-    
-
-    Parameters
-    ----------
-    zl : redshift of lens
-        
-    zs : redshift of source
-        
-    qz : redshift to match data
-        
-    err : TYPE, optional
-        match error. The default is 5e-3.
-
-    Returns
-    -------
-    sgln : The SGL index on the match
-        
-    qzln : the index of SN that matches zl
-        
-    qzsn : the index of SN that matches zl
-        
-
-    '''
     sgln=[]
     qzln=[]
     qzsn=[]

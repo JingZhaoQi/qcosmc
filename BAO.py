@@ -6,12 +6,14 @@ Created on Tue May 21 15:28:27 2019
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+
+dataDir=os.path.dirname(os.path.abspath(__file__))+'/data'
 
 
 
 class BAO_likelihood(object):
-    def __init__(self,DATA_DIR,data_set):
-        self.dataDir = DATA_DIR
+    def __init__(self,data_set):
         self.data_set = data_set
     
     
@@ -22,7 +24,7 @@ class BAO_likelihood(object):
         return z,bao,np.reshape(cov,(len(z), len(z)))
     
     def read_Data(self):
-        self.z_dr12,self.dr12,self.dr12_cov = self.__read(self.dataDir+'/DR12.txt')
+        self.z_dr12,self.dr12,self.dr12_cov = self.__read(dataDir+'/DR12.txt')
         self.rd_f = 150.78
         self.z_6dFGS= 0.106
         self.dFGS = 3.047

@@ -151,14 +151,13 @@ class MCMC_class(object):
         try:
             sampler.run_mcmc(pos, steps, progress=True)
         except ValueError:
-            self.test=sampler
             print(pos)
             raise ValueError("Probability function returned NaN")
         print("Done.")
         self.savefile(sampler,nwalkers)
         return sampler
     
-    @timer
+
     def MCMC_mul(self,steps=1000,nwalkers=100,nc=1e-4):
         print ('\n'+'=======================================================')
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
@@ -172,13 +171,12 @@ class MCMC_class(object):
         # Set up the sampler.
         ndim= self.n
         pos = [result['x'] + nc*np.random.randn(ndim) for i in range(nwalkers)]
-        print("Running MCMC...")
-        with Pool() as pool:
-            sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp, pool=pool)
-            sampler.run_mcmc(pos, steps, progress=True)
-        print("Done.")
-        self.savefile(sampler,nwalkers)
-        return sampler
+        # print("Running MCMC...")
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp)
+            # sampler.run_mcmc(pos, steps, progress=True)
+        # print("Done.")
+        # self.savefile(sampler,nwalkers)
+        return sampler, pos
 
     def check(self,*arg):
         if arg:
@@ -205,9 +203,9 @@ class MCplot(object):
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
             savefile_name='./chains/'+self.root[i]+'.npy'
-            self.samples,self.theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
-            self.label_name=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.theta_name]
-            self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.label_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
+            self.samples,theta_name,self.theta_fit,self.theta_fact,self.minkaf[i],self.data_num[i],ranges=np.load(savefile_name, allow_pickle=True)
+            self.theta_name=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in theta_name]
+            self.Samp.append(MCSamples(samples=self.samples,names = self.theta_name, labels = self.theta_name,ranges=ranges,settings={'ignore_rows':ignore_rows}))
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
@@ -224,9 +222,10 @@ class MCplot(object):
     def plot1D(self,n,colorn=0,width_inch=8,**kwargs):
         g = plots.getSinglePlotter(width_inch=width_inch)
         g.plot_1d(self.Samp,self.param_names[n-1],ls=lss,colors=colors[colorn:colorn+self._n],lws=[1.5]*self._n,**kwargs)
+        # g.settings.figure_legend_frame = False
         ax=plt.gca()
         if all(self.lengend):
-            leg = ax.legend(self.lengend,loc=0,fontsize=16)
+            leg = ax.legend(self.lengend,loc=1,fontsize=16,frameon=False)
             for line,text in zip(leg.get_lines(), leg.get_texts()):
                 text.set_color(line.get_color())
         if 'x_marker' in kwargs:
@@ -293,7 +292,7 @@ class MCplot(object):
                 t_name.append(self.param_names[i-1])
         g = plots.get_subplot_plotter(width_inch=9)
         g.settings.num_plot_contours = contour_num
-        g.settings.legend_fontsize = 18
+        g.settings.legend_fontsize = 20
         g.settings.axes_fontsize = 14
         g.settings.lab_fontsize = 18
         g.settings.figure_legend_frame = False
@@ -360,41 +359,6 @@ class MCplot(object):
             print(',  '.join(re[i:i+n])+'\n')
         return re
 
-    @property
-    def results2(self):
-        re=[]
-        for k in range(self._n):
-            n=len(self.Samp[k].getParamNames().names)
-            pnames=self.label_name
-            plt.figure(figsize=(10,6+(n-1)), dpi=90)
-            plt.axes([0.025,0.025,0.95,0.95])
-            plt.xticks([]), plt.yticks([])
-            plt.text(0.1,0.9,'The results of "{0}" are:'.format(self.root[k].replace('_',' ')), fontsize=18)
-            plt.text(0.5,0.83,'$1\sigma$',fontsize=14)
-            # plt.text(0.7,0.83,'$2\sigma$',fontsize=14)
-            size = 20
-            for i in range(n):
-                mcmc = np.percentile(self.Samp[k].samples[:, i], [16, 50, 84])
-                q = np.diff(mcmc)
-                txt = "$\mathrm{{{3}}} = {0:.3f}_{{-{1:.3f}}}^{{+{2:.3f}}}$"
-                tt = txt.format(mcmc[1], q[0], q[1], pnames[i])
-                # tt='$%s$'%(self.Samp[k].getInlineLatex(pnames[i].name,limit=1))
-                re.append(tt)
-                x,y = (0.2,0.75-i*0.12)
-                plt.text(x,y,tt, fontsize=size)
-            if self.aic_g:
-                aic="$\mathrm{{AIC}}$=${0}$".format(round(self.minkaf[k]+2.0*n,3))
-                bic="$\mathrm{{BIC}}$=${0}$".format(round(self.minkaf[k]+n*np.log(self.data_num[k]),3))
-                kafm="$\chi^2_{{min}}$=${0}$".format(round(self.minkaf[k],3))
-                dof="$\chi^2_{{min}}/d.o.f.$=${0}$".format(round(self.minkaf[k]/(n+self.data_num[k]),3))
-                plt.text(0.1,0.8-(n+1)*0.11,kafm,fontsize=size)
-                plt.text(0.6,0.8-(n+1)*0.11,dof,fontsize=size)
-                plt.text(0.1,0.8-(n+2)*0.11,aic,fontsize=size)
-                plt.text(0.6,0.8-(n+2)*0.11,bic,fontsize=size)
-            plt.savefig(outdir+self.root[k]+'_results2.png',dpi=300)
-        for i in range(self._n):
-            print(',  '.join(re[i:i+n])+'\n')
-        return re
 
 class Fisherplot(MCplot):
     def __init__(self,mean,Cov,labels,lengend='',nsample=1000000):
@@ -409,8 +373,8 @@ class Fisherplot(MCplot):
         self.aic_g=False
     
     def init(self):
-        self.label_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
-        gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.label_names)
+        # self.param_names=[x.replace('H_0','H_0 ~[\mathrm{km~s^{-1}~Mpc^{-1}}]') for x in self.param_names]
+        gauss=GaussianND(self.mean, self.Cov ,names = self.param_names, labels =self.param_names)
         self.Samp = [gauss.MCSamples(self.nsample)]
     
     def addCov(self,mean,Cov,lengend):
@@ -451,4 +415,3 @@ class CMCplot(MCplot):
         self.param_names=[]
         for na in self.Samp[0].getParamNames().names:
             self.param_names.append(na.name)
-        self.label_name = self.param_names

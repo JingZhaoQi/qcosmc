@@ -25,11 +25,11 @@ _twopi = 2 * np.pi
 
 _marge_params = {'marge_steps': 7, 'step_width_alpha': 0.003, 'step_width_beta': 0.04,
                  'alpha_centre': 0.14, 'beta_centre': 3.123}
-
+dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/full_long.dataset'
 
 class SN_likelihood(object):
 
-    def __init__(self, dataset, dataset_params={}, alpha_beta_names=['alpha', 'beta'],
+    def __init__(self, dataset=dataDir, dataset_params={}, alpha_beta_names=['alpha', 'beta'],
                  marginalize=False, marginalize_params=_marge_params, precompute_covmats=True, silent=False):
         """
 
