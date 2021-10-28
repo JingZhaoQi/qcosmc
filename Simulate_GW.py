@@ -15,7 +15,7 @@ import pandas as pd
 import os
 from .tools import simp_err,savetxt
 from astroML.density_estimation import FunctionDistribution
-
+# np.random.seed(6)
 dataDir=os.path.dirname(os.path.abspath(__file__))+'/data/'
 #====================constants=================================
 Mpc=sc.parsec*1e6
@@ -30,7 +30,7 @@ f_lower=1.0
 
 #==============================================================
 class ET(object):
-    def __init__(self,model_name='LCDM', params=[0.308,0.678],GW_type=0.03):
+    def __init__(self,model_name='LCDM', params=[0.315,0.674],GW_type=0.03):
         self.ll=globals().get('%s'%model_name)(*params)
         self._GW_type=GW_type
         self._gw_choice()

@@ -713,16 +713,21 @@ class DGP(LCDM):
 	h : dimensionless parameter related to Hubble constant H0 = 100*h km s^-1 MPc^-1
 	sigma_8 : r.m.s. mass fluctuation on 8h^-1 MPc scale
     """
-    def __init__(self,Om0,h=0.674,OmK=0.0,Ob0h2=0.02225,ns=0.96,sigma_8=0.8):
+    def __init__(self,Om0,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8=0.8):
         self.Om0 = np.float64(Om0)
         self.OmK = OmK
         self.Ob0h2 = np.float64(Ob0h2)
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
 	
     def hubz(self,z):
-        return np.sqrt(self.Om0*(1.+z)**3+(1.-self.Om0)**2/4.)+(1.-self.Om0)/2.
+        Om_rc=(1-self.Om0-self.Omega_r)**2/4
+        return np.sqrt(Om_rc)+np.sqrt(Om_rc+self.Om0*(1+z)**3+self.Omega_r*(1+z)**4)
 
 
 class CGG(LCDM):
