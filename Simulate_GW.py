@@ -12,6 +12,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 import scipy.constants as sc
 import scipy.stats as stats
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 from .tools import simp_err,savetxt
 from astroML.density_estimation import FunctionDistribution
@@ -30,18 +31,18 @@ f_lower=1.0
 
 #==============================================================
 class ET(object):
-    def __init__(self,model_name='LCDM', params=[0.315,0.674],GW_type=0.03):
+    def __init__(self,model_name='LCDM', params=[0.315,0.674],GW_type='NSNS'):
         self.ll=globals().get('%s'%model_name)(*params)
         self._GW_type=GW_type
         self._gw_choice()
     
     def _gw_choice(self):
         if self._GW_type=='BHNS':
-            print('The GW events you choose is %s'%self._GW_type)
+            print('The type of GW events you choose is %s'%self._GW_type)
         elif self._GW_type=='NSNS':
-            print('The GW events you choose is %s'%self._GW_type)
+            print('The type of GW events you choose is %s'%self._GW_type)
         elif self._GW_type=='BHBH':
-            print('The GW events you choose is %s'%self._GW_type)
+            print('The type of GW events you choose is %s'%self._GW_type)
         elif 0<self._GW_type<1:
             print('The ratio between BHNS and BNS events = %s'%self._GW_type)
         else:
@@ -95,6 +96,16 @@ class ET(object):
     
     def Int_sh(self,f):
         return f**(-7/3)/self.Sh(f)
+    
+    def plotSh(self,ls='-'):
+        f_upper=2e3
+        ff=np.linspace(f_lower, f_upper,10000)
+        plt.plot(ff,np.sqrt(self.Sh(ff)),ls=ls,label='ET')
+        plt.yscale('log')
+        plt.xscale('log')
+        plt.xlabel('$f~[\mathrm{Hz}]$')
+        plt.ylabel('$\sqrt{S_h(f)}~[\mathrm{Hz^{-1/2}}]$')
+        plt.legend(frameon=False)
 
 # =============================================================================
 #=============================================================================
@@ -188,7 +199,7 @@ class ET(object):
         return self.z ,DL_mean,DL_err
 
 
-    def ET_default(self,zlow=0,zup=5,num=1000,rand='normal'):
+    def GW_DL(self,zlow=0,zup=2,num=1000,rand='normal'):
 #        self.count=0
 #        if type(self._GW_type)==str:
 #            if zup>self.z_max: zup=self.z_max
@@ -230,7 +241,7 @@ class ET(object):
         except AttributeError:
             print('Please run the GW_z function firstly!')
     
-class Ligo(object):
+class LIGO(object):
     def __init__(self,Gam,Lam,ll,kesi=np.pi/2,psi=np.pi/4,iota=0):
         self.Gam = Gam
         self.Lam = Lam
@@ -281,6 +292,14 @@ class Ligo(object):
         x=f/f0
         return S0*(x**(-4.14)-5*x**(-2)+111*(1-x**2+0.5*x**4)/(1+0.5*x**2))
     
+    def plotSh(self,ls='-'):
+        ff=np.linspace(10, 2e3,10000)
+        plt.plot(ff,np.sqrt(self.Sh(ff)),ls=ls,label='LIGO')
+        plt.yscale('log')
+        plt.xscale('log')
+        plt.xlabel('$f~[Hz]$')
+        plt.ylabel('$\sqrt{S_h(f)}~[Hz^{-1/2}]$')
+        plt.legend(frameon=False)
 
     def Ncont(self):
         Nint=lambda f:f**(-7/3)/self.Sh(f)
@@ -289,7 +308,7 @@ class Ligo(object):
     def snr(self,alpha,delta,ang,Mc_obs,z):
         return 2*np.sqrt(sc.G**(5/3)*sc.c**(-3)*self.AA(alpha,delta,ang,Mc_obs,z)**2*self.Ncont())
 
-class Virgo(Ligo):
+class Virgo(LIGO):
     def __init__(self,Gam,Lam,ll,kesi=np.pi/2,psi=np.pi/4,iota=0):
         self.Gam = Gam
         self.Lam = Lam
@@ -333,10 +352,10 @@ class LgVg(object):
 # =============================================================================
 #=============================================================================
     def __snr(self,z):
-        H1=Ligo(171.8*np.pi/180,46.45*np.pi/180,self.ll)
+        H1=LIGO(171.8*np.pi/180,46.45*np.pi/180,self.ll)
         H1longitude = (119+24/60+27.6/60**2)*np.pi/180
         
-        L1=Ligo(243*np.pi/180,30.56*np.pi/180,self.ll)
+        L1=LIGO(243*np.pi/180,30.56*np.pi/180,self.ll)
         L1longitude = (90+46/60+27.3/60**2)*np.pi/180
         
         V1=Virgo(116.5*np.pi/180,43.63*np.pi/180,self.ll)
@@ -467,6 +486,15 @@ class DECIGO(object):
         c=4.94*1e-52*f**(-4)
         return a+b+c
     
+    def plotSh(self,ls='-'):
+        ff=np.linspace(1e-3,1e2,10000)
+        plt.plot(ff,np.sqrt(self.Sh(ff)),ls=ls,label='DECIGO')
+        plt.yscale('log')
+        plt.xscale('log')
+        plt.xlabel('$f~[\mathrm{Hz}]$')
+        plt.ylabel('$\sqrt{S_h(f)}~[\mathrm{Hz^{-1/2}}]$')
+        plt.legend(frameon=False)
+    
     @staticmethod
     def t_f_normal(f,m1,m2,z):
         '''
@@ -593,13 +621,13 @@ class DECIGO(object):
         return self.z ,DL_mean,DL_err
 
 
-    def GW(self,zlow=0,zup=5,num=1000,rand='normal'):
+    def GW_DL(self,zlow=0,zup=5,num=1000,rand='normal'):
 #        self.count=0
 #        if type(self._GW_type)==str:
 #            if zup>self.z_max: zup=self.z_max
         z,snh,snl=np.loadtxt(dataDir+'NSNSrates.dat',usecols=(1, 2,3),skiprows=1,unpack=True)
         Pz=InterpolatedUnivariateSpline(z[::-1],snh[::-1])
-        zzn=FunctionDistribution(self.Pz,zlow,zup,num).rvs(num)
+        zzn=FunctionDistribution(Pz,zlow,zup,num).rvs(num)
         zz,DL_mean,DL_err = self.GWz(zzn,rand)
         return zz,DL_mean,DL_err
 
@@ -607,7 +635,7 @@ class DECIGO(object):
         v0=369.1
         dL1=v0*(1+self.z)**2/self.ll.Hz(self.z)
         Hz_s=self.ll.Hz(self.z)*np.sqrt(3)*(self.DL_err/self.DL)/(dL1/self.DL)
-        Hz=self.ll.Hz(z)
+        Hz=self.ll.Hz(self.z)
         return self.z,Hz,Hz_s
 
     def save_fulldata(self,path_file_name):
@@ -644,60 +672,3 @@ class DECIGO(object):
         except AttributeError:
             print('Please run the GW_z function firstly!')
 
-#class LISA(object):
-#    
-#    def __init__(self,Omegam=0.3,h=0.7,random=True):
-#        self.ll=LCDM(Omegam,h)
-#        self.H0 = h*1e2
-#        self.Hz=self.ll.hubz
-#        self.dc=self.ll.d_z
-#        self.dlz=np.vectorize(self.ll.lum_dis_z)
-#        self.random = random
-##        self.DL_err = DL_err
-#    
-#    def redshift_distribution(self,number):
-#        Ngw=np.asarray([3.6,10.3,9.3,7.5,4.7,2.8,1.2,0.4,0.2,0.0])
-#        ratio=Ngw/np.sum(Ngw)
-#        true_n=number-1
-#        addn=0
-#        bins=np.arange(0,11,1)
-#        while true_n<number:
-#            fb=map(int,map(round,(number+addn)*ratio*100))
-#            true_n=sum(fb)
-#            addn=addn+1
-#        zzn=np.random.uniform(0.31,bins[1],fb[0])
-#        for i in range(1,len(bins)-1):
-#            zn=np.random.uniform(bins[i],bins[i+1],fb[i])
-##            print(zn,i)
-#            zzn=np.append(zzn,zn)
-##        if self.endpoint:
-##            zzn=np.append(zzn,[0.5,6])
-#        redshift=np.random.choice(zzn,number,replace=False)
-#        return np.sort(redshift)
-#    
-#    def DL(self,z):
-#        return self.dlz(z)
-#    
-#    def DL_s(self,z):
-#        lens=self.DL(z)*0.066*np.power((1.0-np.power(1.+z,-0.25))/0.25,1.8)
-##        vz=self.dlz(z)*Mpc*(1.+(1.+z)/self.dlz(z)*self.ll.D_H())*(500.0*1e3/c0)
-#        return lens
-#
-#    def dp_lens2(self,z,mud,mud_err=0.05):
-#        Dl_th,DL_s=self.DL(z),self.DL_s(z)
-#        A_obs=np.sqrt(mud)/Dl_th
-#        A_s=A_obs*DL_s/Dl_th
-#        def dps(zs,A,mu):
-#            return np.sqrt(mu)/A/(1+zs)
-#        dp,dp_s=simp_err(dps,[z,A_obs,mud],[z*0.0,A_s,mud*mud_err])
-#        return dp/self.ll.D_H(), dp_s/self.ll.D_H()
-#    
-#    def gw(self,number):
-#        z=self.redshift_distribution(number)
-#        dl_err = self.DL_s(z)
-#        dl = self.DL(z)
-#        if self.random:
-#            dll=stats.truncnorm(-1.0,1.0,loc=dl, scale=dl_err).rvs()
-#        else:
-#            dll=dl
-#        return z,dll,dl_err

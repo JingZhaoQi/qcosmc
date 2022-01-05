@@ -2,7 +2,7 @@
 """
 Created on Fri Feb 09 15:16:51 2018
 
-@author: jingzhao
+@author: Qijingzhao
 """
 #import numpy as np
 import seaborn as sns
@@ -109,7 +109,7 @@ def qstyle(tex=False,rc={}):
 #    sns.reset_defaults()
 #    sns.set(style="ticks")
     color=['#348ABD', '#7A68A6',  '#E24A33', '#467821' ,'#ffb3a6', '#188487', '#A60628']
-    sns.color_palette(color)
+    # sns.color_palette(color)
     mpl.rc('text', usetex=tex)
     mpl.rcParams['mathtext.fontset'] = 'cm'
     mpl.rcParams['mathtext.rm'] = 'serif'

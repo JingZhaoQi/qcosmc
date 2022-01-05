@@ -220,6 +220,20 @@ class LCDM(object):
         zzd=1291*omh2**(0.251)*(1+b1*obh2**b2)/(1+0.659*omh2**(0.828))
         return zzd
     
+    def theta_BAO(self,z,rd):
+        '''
+        arXiv:2112.10000v1
+
+        Parameters
+        ----------
+        z : redshift
+        rd : the sound horizon at the drag epoch as a free parameter
+        Returns
+        -------
+        theta_BAO
+        '''
+        return rd/(1+z)/self.ang_dis_z(z)
+    
     @property
     def rd(self):
         return self.rs_z(self.zd)
@@ -619,6 +633,59 @@ class CPL(LCDM):
     def wz(self,z):
         return self.w0+self.wa*z/(1.+z)
 
+class IwCDM1(LCDM):
+    '''
+    A Class to calculate cosmological observables for the interaction dark energy model: IwCDM1
+    for which the interaction term is
+    Q=3*beta*H*rho_de
+    
+    MNRAS 463, 952–956 (2016)
+    '''
+    def __init__(self,Om0,beta,w,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.beta = np.float64(beta)
+        self.w = np.float64(w)
+        self.h = np.float64(h)
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
+    
+    def hubz(self,z):
+        Omde=1-self.Om0-self.Omega_r
+        return np.sqrt(Omde*(self.beta/(self.w+self.beta)*(1+z)**3+self.w/(self.w+self.beta)*(1+z)**(3*(1+self.w+self.beta)))+self.Om0*(1+z)**3+self.Omega_r*(1+z)**4)
+    
+    def wz(self,z):
+        return z-z+self.w
+
+class ILCDM1(IwCDM1):
+    '''
+    A Class to calculate cosmological observables for the interaction dark energy model: ILCDM1
+    for which the interaction term is
+    Q=3*beta*H*rho_de
+    
+    MNRAS 463, 952–956 (2016)
+    '''
+    def __init__(self,Om0,beta,w=-1,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.beta = np.float64(beta)
+        self.w = np.float64(w)
+        self.h = np.float64(h)
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
+    
+
+    
 class Geos(LCDM):
     """
     arXiv:0905.4052V2
@@ -670,9 +737,10 @@ class GCG(LCDM):
         self.ns = np.float64(ns)
         self.h = np.float64(h)
         self.sigma_8 = np.float64(sigma_8)
+        self.Omega_r = self.Omega_r0
 	
     def hubz(self,z):
-        return np.sqrt(self.Om0*(1.+z)**3. + (1.-self.Om0)*(self.As+(1-self.As)*(1+z)**(3*(1+self.alpha)))**(1/(1+self.alpha)))
+        return np.sqrt(self.Om0*(1.+z)**3.+self.Omega_r*(1+z)**4 + (1.-self.Om0-self.Omega_r)*(self.As+(1-self.As)*(1+z)**(3*(1+self.alpha)))**(1/(1+self.alpha)))
     def wz(self,z):
         A=self.As
         a=self.alpha
@@ -974,7 +1042,7 @@ class HDE_EH(LCDM):
     Eur.Phys.J.C(2016)76:588
     Event horizon cutoff
     '''
-    def __init__(self,Om0,cc,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5,0.1)):
+    def __init__(self,Om0,cc,h=0.7,Or0='None',OmK=0.0,Ob0h2=0.02236,ns=0.96,sigma_8=0.8,zz=np.arange(0,5.1,0.1)):
         self.Om0 = np.float64(Om0)
         self.cc = np.float64(cc)
         self.OmK = OmK

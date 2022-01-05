@@ -13,7 +13,7 @@ dataDir=os.path.dirname(os.path.abspath(__file__))+'/data'
 
 
 class BAO_likelihood(object):
-    def __init__(self,data_set):
+    def __init__(self,data_set=dataDir):
         self.data_set = data_set
     
     

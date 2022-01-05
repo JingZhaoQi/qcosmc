@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue May 21 15:28:27 2019
+
+@author: qijingzhao
+"""
 from __future__ import division, absolute_import, print_function
 __all__ = ['Decorator','tools','FigStyle','cos_models','Likelihood','MCMC','Simulation','Simulate_GW']
 

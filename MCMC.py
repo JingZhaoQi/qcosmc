@@ -2,7 +2,7 @@
 """
 Created on Thu Aug 17 15:02:38 2017
 
-@author: jingzhao
+@author: Qijingzhao
 """
 __package__ = 'qcosmc'
 import numpy as np
@@ -16,27 +16,26 @@ from getdist import MCSamples,loadMCSamples,plots
 from getdist.gaussian_mixtures import GaussianND
 from .FigStyle import qstyle
 from .Decorator import timer
-from multiprocessing import Pool
+
 os.environ["OMP_NUM_THREADS"] = "1"
 
-dd=np.dtype([('name',np.str_,16),('fit',np.float64),('lower',np.float64),('upper',np.float64)])
-
 class MCMC_class(object):
-    def __init__(self,parameters,chi2,Chains_name,data_num=0):
+    def __init__(self,params,chi2,Chains_name,data_num=0,nwalkers=32):
         self.chi2=chi2
         self.Chains_name= Chains_name
         self.data_num = data_num
-        self.params_all=np.zeros(0,dtype=dd)
-        for i in range(len(parameters)):
-            self.params_all=np.append(self.params_all,np.array([tuple(parameters[i])],dtype=dd))
-
-        self.n=len(self.params_all)
+        self.params_all={'name':[p[0] for p in params], 'fit':np.asarray([p[1] for p in params],dtype=object),
+            'lower':np.asarray([p[2] for p in params],dtype=object),'upper':np.asarray([p[3] for p in params],dtype=object)}
+        self.n=len(self.params_all['name'])
         self.theta_fit=np.zeros(self.n)
         self.theta_fact=np.zeros(self.n)
+        self.nwalkers = nwalkers
+        self.pos=self.optimize()
+        
 
     def _lnprior(self,x):
         i=0
-        while i<len(self.params_all):
+        while i<self.n:
             if self.params_all['lower'][i]<=x[i]<=self.params_all['upper'][i]:
                 s=0.0
             else:
@@ -44,25 +43,19 @@ class MCMC_class(object):
                 break
             i=i+1
         return s
-#    
 
     def _lik(self,theta):
-    	return np.exp(-self.chi2(theta)/2.)
-    
-    def _lnlike(self,theta):
-        return np.log(self._lik(theta))
-#    	
+        	return np.exp(-self.chi2(theta)/2.)
+
     def _lnprob(self,theta):
         lp = self._lnprior(theta)
         if not np.isfinite(lp):
             return -np.inf
-        return lp+self._lnlike(theta)
-#    
+        return lp-self.chi2(theta)/2.
+
     def _ff(self,theta):
         return -2.0*self._lnprob(theta)
-#    
-    def _lnp(self,theta):
-        return self._lnprob(theta)
+
     def _check_err(self,gv,fv):
         if gv==fv:
             while(True):
@@ -92,35 +85,34 @@ class MCMC_class(object):
                 else:
                     print('输入错误，重新输入')
 
-    def Rc(self,chains,nwalkers):
-        R_c = np.linspace(0, 1, chains.shape[-1])
-        print('-'*40)
-        for i in range(chains.shape[-1]):
-            para = chains[:,i]
-            para_reshape = para.reshape((-1,nwalkers))
-            para_reshape = para_reshape[para_reshape.shape[0]//2:para_reshape.shape[0],:]   # the second half of each chain is used to check the convergence state
-            walker_mean = np.mean(para_reshape, axis=0, keepdims=True) # mean of each walker
-            var_mean = np.var(walker_mean)                             # variance between each walker
-            walker_var = np.var(para_reshape, axis=0, keepdims=True)   # variance of each walker
-            mean_var = np.mean(walker_var)
+    # def Rc(self,chains,nwalkers):
+    #     R_c = np.linspace(0, 1, chains.shape[-1])
+    #     print('-'*40)
+    #     for i in range(chains.shape[-1]):
+    #         para = chains[:,i]
+    #         para_reshape = para.reshape((-1,nwalkers))
+    #         para_reshape = para_reshape[para_reshape.shape[0]//2:para_reshape.shape[0],:]   # the second half of each chain is used to check the convergence state
+    #         walker_mean = np.mean(para_reshape, axis=0, keepdims=True) # mean of each walker
+    #         var_mean = np.var(walker_mean)                             # variance between each walker
+    #         walker_var = np.var(para_reshape, axis=0, keepdims=True)   # variance of each walker
+    #         mean_var = np.mean(walker_var)
             
-           # sample from one walker ==> one chain
-           # For multiple (nwalkers) chains  the code computes the Gelman and Rubin "R statistic"
-           # Please See Page 38 of "eprint arXiv:0712.3028" for the definitions of "R statistic"
+    #        # sample from one walker ==> one chain
+    #        # For multiple (nwalkers) chains  the code computes the Gelman and Rubin "R statistic"
+    #        # Please See Page 38 of "eprint arXiv:0712.3028" for the definitions of "R statistic"
            
-            R_c[i] = (mean_var*(1.0-2.0/para_reshape.shape[0])+var_mean*(1.0+1.0/nwalkers))/mean_var 
-            print('R[%s]-1='%i+'%s'%abs(R_c[i]-1))
-        return R_c
+    #         R_c[i] = (mean_var*(1.0-2.0/para_reshape.shape[0])+var_mean*(1.0+1.0/nwalkers))/mean_var 
+    #         print('R[%s]-1='%i+'%s'%abs(R_c[i]-1))
+    #     return R_c
 
-    def savefile(self,sampler,nwalkers):
+    def savefile(self,sampler):
         chains_dir='./chains/'
         if not os.path.exists(chains_dir):
             os.makedirs(chains_dir)
         
         savefile_name='./chains/'+self.Chains_name+'.npy'
-        burnin = 100
+        burnin = 50
         samples = sampler.chain[:, burnin:, :].reshape((-1, self.n))
-        self.Rc(samples,nwalkers)
         vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
         self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
         self.minkaf=self.chi2(self.theta_fit)
@@ -130,54 +122,100 @@ class MCMC_class(object):
         np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num,ranges))
         print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
 
+    def savefiles(self,sampler):
+        chains_dir='./chains/'
+        if not os.path.exists(chains_dir):
+            os.makedirs(chains_dir)
+        
+        savefile_name='./chains/'+self.Chains_name
+        # tau = sampler.get_autocorr_time()
+        # burnin = int(2 * np.max(tau))
+        # thin = int(0.5 * np.min(tau))
+        # samples = sampler.get_chain(discard=burnin, flat=True, thin=thin)
+        burnin = 50
+        samples = sampler.chain[:, burnin:, :].reshape((-1, self.n))
+        # ranges=list(zip(self.params_all['lower'],self.params_all['upper']))
+        # minkaf=self.chi2(self.theta_fit)
+        # np.savez(savefile_name,sample=samples,names=self.params_all['name'],data_num=self.data_num,ranges=ranges,minkaf=minkaf,theta_fit=self.theta_fit)
+        # print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
+        vv=lambda v: (v[1], v[2]-v[1], v[1]-v[0])
+        self.theta_fact= vv(np.percentile(samples, [16, 50, 84],axis=0))
+        self.minkaf=self.chi2(self.theta_fit)
+        self.samples=samples
+        ranges=list(zip(self.params_all['lower'],self.params_all['upper']))
+        
+        np.save(savefile_name,(samples,self.params_all['name'],self.theta_fit,self.theta_fact,self.minkaf,self.data_num,ranges))
+        print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
+        
     @timer
-    def MCMC(self,steps=1000,nwalkers=100,nc=1e-4):
+    def MCMC(self,steps=1000,nc=1e-4):
         print ('\n'+'=======================================================')
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
-        result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
-        self.theta_fit= result['x']
-        for i in range(self.n):
-            print("""The best-fit value of {0}={1}""".format(self.params_all['name'][i],self.theta_fit[i]))
-        
-        self._check_err(self.params_all['fit'][0],self.theta_fit[0])
         
         # Set up the sampler.
         ndim= self.n
-        pos = [result['x'] + nc*np.random.randn(ndim) for i in range(nwalkers)]
         # print(pos)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp)
+        sampler = emcee.EnsembleSampler(self.nwalkers, ndim, self._lnprob)
         #print pos
         # Clear and run the production chain.
         print("Running MCMC...")
         try:
-            sampler.run_mcmc(pos, steps, progress=True)
+            sampler.run_mcmc(self.pos, steps, progress=True)
         except ValueError:
-            print(pos)
+            print(self.pos)
             raise ValueError("Probability function returned NaN")
         print("Done.")
-        self.savefile(sampler,nwalkers)
+        self.savefile(sampler)
         return sampler
     
-
-    def MCMC_mul(self,steps=1000,nwalkers=100,nc=1e-4):
-        print ('\n'+'=======================================================')
-        print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
+    def optimize(self):
+        nc=1e-4
         result = opt.minimize(self._ff,self.params_all['fit'],method='Nelder-Mead')
         self.theta_fit= result['x']
-        for i in range(self.n):
-            print("""The best-fit value of {0}={1}""".format(self.params_all['name'][i],self.theta_fit[i]))
+        # for i in range(self.n):
+        #     print("""The best-fit value of {0}={1}""".format(self.params_all['name'][i],self.theta_fit[i]))
         
         self._check_err(self.params_all['fit'][0],self.theta_fit[0])
-        
+        pos = [result['x'] + nc*np.random.randn(self.n) for i in range(self.nwalkers)]
+        return pos
+    
+    @timer
+    def runMC(self,**kwargs):
+        max_n = 100000
+        print ('\n'+'='*50)
+        print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         # Set up the sampler.
-        ndim= self.n
-        pos = [result['x'] + nc*np.random.randn(ndim) for i in range(nwalkers)]
-        # print("Running MCMC...")
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, self._lnp)
-            # sampler.run_mcmc(pos, steps, progress=True)
-        # print("Done.")
-        # self.savefile(sampler,nwalkers)
-        return sampler, pos
+        sampler = emcee.EnsembleSampler(self.nwalkers, self.n, self._lnprob,**kwargs)
+        index = 0
+        autocorr = np.empty(max_n)
+
+        # This will be useful to testing convergence
+        old_tau = np.inf
+
+        # Now we'll sample for up to max_n steps
+        for sample in sampler.sample(self.pos, iterations=max_n, progress=True):
+            # Only check convergence every 100 steps
+            if sampler.iteration % 100:
+                continue
+
+            # Compute the autocorrelation time so far
+            # Using tol=0 means that we'll always get an estimate even
+            # if it isn't trustworthy
+            tau = sampler.get_autocorr_time(tol=0)
+            autocorr[index] = np.mean(tau)
+            index += 1
+
+            # Check convergence
+            converged = np.all(tau * 100 < sampler.iteration)
+            converged &= np.all(np.abs(old_tau - tau) / tau < 0.01)
+            if converged:
+                break
+            old_tau = tau
+        print('\n'+'='*50)
+        print("|    Done. \n|    The chains has converged.")
+        print('='*50)
+        self.savefiles(sampler)
+
 
     def check(self,*arg):
         if arg:
@@ -192,14 +230,15 @@ lss=['-','--','-.',':']
 outdir='./results/'
 
 class MCplot(object):
-    def __init__(self,Chains,new_name=None,ignore_rows=0.1):
-        self.root=list(np.asarray(Chains)[:,0])
-        self.lengend=list(np.asarray(Chains)[:,1])
+    def __init__(self,Chains,new_name=None,ignore_rows=0.0,ccolor=None):
+        self.root=[i[0] for i in Chains]
+        self.lengend=[i[1] for i in Chains]
         self.aic_g=True
         self.Samp=[]
         self._n = len(Chains)
         self.minkaf=np.zeros(self._n)
         self.data_num=np.zeros(self._n)
+        self.ccolor=ccolor
 #        self.theta_fit=np.zeros(self._n)
 #        self.theta_fact=np.zeros(self._n)
         for i in range(self._n):
@@ -223,6 +262,8 @@ class MCplot(object):
             self.param_names.append(na.name)
     
     def plot1D(self,n,colorn=0,width_inch=8,**kwargs):
+        # if colorn:
+        #     colors=cmap.colors
         g = plots.getSinglePlotter(width_inch=width_inch)
         g.plot_1d(self.Samp,self.param_names[n-1],ls=lss,colors=colors[colorn:colorn+self._n],lws=[1.5]*self._n,**kwargs)
         # g.settings.figure_legend_frame = False
@@ -249,6 +290,8 @@ class MCplot(object):
     
     def plot2D(self,pp,colorn=0,contour_num=2,width_inch=8,**kwargs):
         g = plots.getSinglePlotter(width_inch=width_inch,ratio=1)
+        if self.ccolor:
+            g.settings.solid_colors=self.ccolor
         g.settings.num_plot_contours = contour_num
         g.settings.axes_fontsize = 14
         g.settings.lab_fontsize = 18
@@ -283,6 +326,8 @@ class MCplot(object):
 
     def plot3D(self,pp,colorn=None,contour_num=2,**kwargs):
         if colorn:
+            cmap=plt.get_cmap(self.ccolor)
+            colors=cmap.colors
             colorss=colors[colorn-1:colorn-1+self._n]
         else:
             colorss=None
@@ -294,6 +339,8 @@ class MCplot(object):
             for i in pp:
                 t_name.append(self.param_names[i-1])
         g = plots.get_subplot_plotter(width_inch=9)
+        if self.ccolor:
+            g.settings.solid_colors=self.ccolor
         g.settings.num_plot_contours = contour_num
         g.settings.legend_fontsize = 20
         g.settings.axes_fontsize = 14
@@ -302,9 +349,9 @@ class MCplot(object):
         g.settings.alpha_filled_add=0.8
         if all(self.lengend):
             print(t_name)
-            g.triangle_plot(self.Samp,t_name,filled_compare=True,legend_labels=self.lengend,contour_colors=colorss,legend_loc='upper right',**kwargs)
+            g.triangle_plot(self.Samp,t_name,filled_compare=True,contour_lws=2,legend_labels=self.lengend,contour_colors=colorss,legend_loc='upper right',**kwargs)
         else:
-            g.triangle_plot(self.Samp,t_name,filled_compare=True,contour_colors=colorss,**kwargs)
+            g.triangle_plot(self.Samp,t_name,filled_compare=True,contour_lws=2,contour_colors=colorss,**kwargs)
         if 'xlim' in kwargs:
             for xi in kwargs['xlim']:
                 for ax in g.subplots[:,xi[0]-1]:
@@ -423,8 +470,8 @@ class Fisherplot(MCplot):
         self.root.append(lengend)
     
     def addChains(self,Chains,ignore_rows=0.3):
-        root=list(np.asarray(Chains)[:,0])
-        lengend=list(np.asarray(Chains)[:,1])
+        root=[i[0] for i in Chains]
+        lengend=[i[1] for i in Chains]
         n = len(Chains)
         for i in range(n):
             savefile_name='./chains/'+root[i]+'.npy'
@@ -441,8 +488,8 @@ class Fisherplot(MCplot):
 
 class CMCplot(MCplot):
     def __init__(self,Chains,ignore_rows=0.3):
-        self.root=list(np.asarray(Chains)[:,0])
-        self.lengend=list(np.asarray(Chains)[:,1])
+        self.root=[i[0] for i in Chains]
+        self.lengend=[i[1] for i in Chains]
         self.aic_g=False
         self.Samp=[]
         self._n = len(Chains)

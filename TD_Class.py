@@ -1,5 +1,6 @@
 """
 We start with a bunch of standard imports..
+This code comes from https://github.com/shsuyu/H0LiCOW-public/tree/master/H0_inference_code
 """
 
 

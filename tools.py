@@ -13,8 +13,6 @@ from scipy import integrate
 #from time import clock
 #from sklearn.gaussian_process import GaussianProcessRegressor
 from .FigStyle import qplt
-dd=np.dtype([('name',np.str_,16),('num',np.int),('lower',np.float64),('upper',np.float64)])
-
 
 
 def get_errors(FF):
