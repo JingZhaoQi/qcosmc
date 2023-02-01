@@ -15,6 +15,56 @@ from scipy import integrate
 from .FigStyle import qplt
 
 
+from multiprocessing import Pool
+
+from tqdm import tqdm
+
+
+class SelfMultiple:
+    def __init__(self, func, process: int, params: list, custom_callback=False, callback=None):
+        print("==>init customized multiple class")
+        self.func = func
+        self.params = params
+        self.process = process
+        self.custom_callback = custom_callback
+        self.callback = callback
+
+    def run(self):
+        self.pool = Pool(processes=self.process)
+
+        if self.custom_callback == False:
+            print("==>undefined self callback")
+
+            pbar = tqdm(total=len(self.params))
+
+            def update(*a):
+                pbar.update()
+
+            for param in self.params:
+                result = self.pool.apply_async(self.func, param, callback=update)
+                result.get()
+        else:
+            print("==>defined self callback")
+            print(f"==>executing || {self.func}")
+            for param in self.params:
+                result = self.pool.apply_async(self.func, param, callback=self.callback)
+                result.get()
+        self.pool.close()
+        self.pool.join()
+'''
+def add(x, y):
+    print(f"adding || {x} + {y}")
+    return x + y
+
+
+if __name__ == "__main__":
+
+    params = [(1, 2), (3, 4), (5, 6), (7, 8)]
+
+    multiple_tool = SelfMultiple(add, process=10, params=params, custom_callback=False)
+    multiple_tool.run()
+'''
+
 def get_errors(FF):
     if FF.ndim == 2:
         cov=np.linalg.inv(FF)
@@ -307,17 +357,48 @@ def calibration(fgsz,sn,error):
             zn.append(i)
     return zn,np.asarray(mub),np.asarray(mub_sig)
 
-def redshift_match(z,target_z,error):
-    n=len(z)
-    zn=[]
-    tar_zn=[]
+# def redshift_match(z,target_z,error):
+#     n=len(z)
+#     zn=[]
+#     tar_zn=[]
+#     for i in range(n):
+#         c1=np.where(abs(z[i]-target_z)<=error)
+#         if list(c1[0]):
+#             zn.append(i)
+#             tn=list(np.random.choice(c1[0],1))
+#             tar_zn.append(tn[0])
+#     return zn,tar_zn
+
+def redshift_match(target_z,match_z,error):
+    '''
+
+    Parameters
+    ----------
+    target_z : numpy.ndarray
+        DESCRIPTION.
+    match_z : numpy.ndarray
+        DESCRIPTION.
+    error : float
+        DESCRIPTION.
+
+    Returns
+    -------
+    target_n : TYPE
+        DESCRIPTION.
+    match_n : TYPE
+        DESCRIPTION.
+
+    '''
+    n=len(target_z)
+    target_n=[]
+    match_n=[]
     for i in range(n):
-        c1=np.where(abs(z[i]-target_z)<=error)
+        c1=np.where(abs(target_z[i]-match_z)<=error)
         if list(c1[0]):
-            zn.append(i)
+            target_n.append(i)
             tn=list(np.random.choice(c1[0],1))
-            tar_zn.append(tn[0])
-    return zn,tar_zn
+            match_n.append(tn[0])
+    return target_n,match_n
 
 def redshift_match_SGL(zl,zs,qz,err=5e-3):
     sgln=[]

@@ -148,22 +148,22 @@ class MCMC_class(object):
         print('\nChains name is "%s".'%self.Chains_name+'  data number:%s'%self.data_num)
         
     @timer
-    def MCMC(self,steps=1000,nc=1e-4):
-        print ('\n'+'=======================================================')
+    def MCMC(self,steps=10000,nc=1e-4,**kwargs):
+        print ('\n'+'='*50)
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         
         # Set up the sampler.
         ndim= self.n
         # print(pos)
-        sampler = emcee.EnsembleSampler(self.nwalkers, ndim, self._lnprob)
+        sampler = emcee.EnsembleSampler(self.nwalkers, ndim, self._lnprob,**kwargs)
         #print pos
         # Clear and run the production chain.
         print("Running MCMC...")
-        try:
-            sampler.run_mcmc(self.pos, steps, progress=True)
-        except ValueError:
-            print(self.pos)
-            raise ValueError("Probability function returned NaN")
+        # try:
+        sampler.run_mcmc(self.pos, steps, progress=True)
+        # except ValueError:
+        #     print(self.pos)
+        #     raise ValueError("Probability function returned NaN")
         print("Done.")
         self.savefile(sampler)
         return sampler
@@ -180,15 +180,14 @@ class MCMC_class(object):
         return pos
     
     @timer
-    def runMC(self,**kwargs):
-        max_n = 100000
+    def runMC(self,max_n = 20000,**kwargs):
         print ('\n'+'='*50)
         print (strftime("%Y-%m-%d %H:%M:%S",localtime())+'\n')
         # Set up the sampler.
         sampler = emcee.EnsembleSampler(self.nwalkers, self.n, self._lnprob,**kwargs)
         index = 0
         autocorr = np.empty(max_n)
-
+        self.sampler=sampler
         # This will be useful to testing convergence
         old_tau = np.inf
 
@@ -209,13 +208,13 @@ class MCMC_class(object):
             converged = np.all(tau * 100 < sampler.iteration)
             converged &= np.all(np.abs(old_tau - tau) / tau < 0.01)
             if converged:
+                print('\n'+'='*50)
+                print("|    The chains has converged.")
+                print('='*50)
                 break
             old_tau = tau
-        print('\n'+'='*50)
-        print("|    Done. \n|    The chains has converged.")
-        print('='*50)
         self.savefiles(sampler)
-
+        print('|    Done   ')
 
     def check(self,*arg):
         if arg:
@@ -381,7 +380,7 @@ class MCplot(object):
             plt.figure(figsize=(10,6+(n-1)), dpi=90)
             plt.axes([0.025,0.025,0.95,0.95])
             plt.xticks([]), plt.yticks([])
-            plt.text(0.1,0.9,'The results of "{0}" are:'.format(self.root[k].replace('_',' ')), fontsize=18)
+            plt.text(0.1,0.9,'The results of "{0}":'.format(self.root[k].replace('_',' ')), fontsize=18)
             plt.text(0.2,0.83,'$1\sigma$',fontsize=14)
             plt.text(0.7,0.83,'$2\sigma$',fontsize=14)
             size = 20
@@ -418,7 +417,7 @@ class MCplot(object):
             plt.figure(figsize=(10,6+(n-1)), dpi=90)
             plt.axes([0.025,0.025,0.95,0.95])
             plt.xticks([]), plt.yticks([])
-            plt.text(0.1,0.9,'The results of "{0}" are:'.format(self.root[k].replace('_',' ')), fontsize=18)
+            plt.text(0.1,0.9,'The results of "{0}":'.format(self.root[k].replace('_',' ')), fontsize=18)
             plt.text(0.5,0.83,'$1\sigma$',fontsize=14)
             # plt.text(0.7,0.83,'$2\sigma$',fontsize=14)
             size = 20

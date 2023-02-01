@@ -155,7 +155,7 @@ class gen_QSO(object):
 
 class gen_SGL(object):
     def __init__(self,filename,thetaE_sig=0.01,sig_vv_sig=0.05,TD_sig=0.05,
-                 middle_mass=True,Omegam=0.308,h=0.678,random=True,Accuracy=0.2,
+                 middle_mass=True,Omegam=0.315,h=0.674,random=True,Accuracy=0.2,
                  standardisable=True):
         self.filename = filename
         self.ll = LCDM(Omegam,h)
@@ -190,7 +190,7 @@ class gen_SGL(object):
         if self.standardisable:
             sgn= [i for i in range(len(beta)) if beta[i]>=t_err and mX_obs[i]<=22.15 and thetaE[i]>=0.9]
         else:
-            sgn= [i for i in range(len(beta)) if beta[i]>=t_err and  thetaE[i]<=0.9]
+            sgn= range(len(beta))
         if 'zsrange' in kwargs:
             [zmin,zmax]=kwargs['zsrange']
             sgn= [i for i in sgn if zmin<=self.sgl[i][1]<=zmax]

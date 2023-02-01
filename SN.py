@@ -17,6 +17,7 @@
 from __future__ import absolute_import
 from __future__ import print_function
 import numpy as np
+import pandas as pd
 from getdist import IniFile
 import io
 import os
@@ -293,6 +294,114 @@ class SN_likelihood(object):
                                             data_params[self.beta_name])
             else:
                 return self.alpha_beta_like(lumdists)
+
+
+
+
+default_data_file = os.path.dirname(os.path.abspath(__file__))+"/data/Pantheon+SH0ES.dat"
+default_covmat_file = os.path.dirname(os.path.abspath(__file__))+"/data/Pantheon+SH0ES_STAT+SYS.cov"
+
+
+class PantheonPlus(object):
+    def __init__(self,cut_redshift=0.01,data_type='pantheon'):
+        self.cut_redshift=cut_redshift
+        # self.max_redshift=max_redshift
+        self.datatype=data_type
+        self.read_data()
+        self.build_data()
+        self.build_cov()
+        
+        
+    def read_data(self):
+        self.data = pd.read_csv(default_data_file,delim_whitespace=True)
+    
+    def build_data(self):
+        data = self.data
+        self.origlen = len(data)
+        
+        # self.ww = ((self.cut_redshift<data['zHD'])&(data['zHD']<=self.max_redshift))
+        if self.datatype=='SH0ES':
+            self.ww = (data['zHD']>self.cut_redshift) | (np.array(data['IS_CALIBRATOR'],dtype=bool))
+            self.shdata=np.array(data['IS_CALIBRATOR'][self.ww],dtype=bool)
+            self.is_calibrator = data['IS_CALIBRATOR'][self.ww]
+            self.cepheid_distance = data['CEPH_DIST'][self.ww]
+            print('Data type is Pantheon+SH0ES')
+        else:
+            self.ww = (data['zHD']>self.cut_redshift)
+            self.cepheid_distance = data['CEPH_DIST'][self.ww]
+            self.shdata=np.zeros(len(self.cepheid_distance),dtype=bool)
+            print('Data type is Pantheon')
+
+        self.zcmb = data['zHD'][self.ww] #use the vpec corrected redshift for zCMB 
+        self.zhel = data['zHEL'][self.ww]
+        self.m_obs = data['m_b_corr'][self.ww]
+        print('The cut redshift is z=%s, and the number of data is %s.'%(self.cut_redshift,len(self.zcmb)))
+        return self.zcmb, self.m_obs
+    
+    # @timer
+    def build_covariance(self):
+        """Run once at the start to build the covariance matrix for the data"""
+        # print("Loading covariance from {}".format(filename))
+
+        # The file format for the covariance has the first line as an integer
+        # indicating the number of covariance elements, and the the subsequent
+        # lines being the elements.
+        # This function reads in the file and the nasty for loops trim down the covariance
+        # to match the only rows of data that are used for cosmology
+
+        f = open(default_covmat_file)
+        n = int(len(self.zCMB))
+        C = np.zeros((n,n))
+        ii = -1
+        jj = -1
+        for i in range(self.origlen):
+            jj = -1
+            if self.ww[i]:
+                ii += 1
+            for j in range(self.origlen):
+                if self.ww[j]:
+                    jj += 1
+                val = float(f.readline())
+                if self.ww[i]:
+                    if self.ww[j]:
+                        C[ii,jj] = val
+        f.close()
+
+        print('Done')
+        return C
+    
+    # @timer
+    def build_cov(self):
+        """Run once at the start to build the covariance matrix for the data"""
+        # print("Loading covariance from {}".format(filename))
+
+        # The file format for the covariance has the first line as an integer
+        # indicating the number of covariance elements, and the the subsequent
+        # lines being the elements.
+        # This function reads in the file and the nasty for loops trim down the covariance
+        # to match the only rows of data that are used for cosmology
+        ff=np.loadtxt(default_covmat_file)
+        # f1=ff[:-1].reshape(self.origlen,self.origlen)
+        f1=ff[1:].reshape(self.origlen,self.origlen)
+        self.cov=f1[self.ww,:][:,self.ww]
+        self.incov=np.linalg.inv(self.cov)
+        # return C
+    
+    def get_redshifts(self):
+        return self.zcmb
+    
+    def chi2(self,model,Mb):
+        mu_th = 5 * np.log10((1 + self.zhel) * (1 + self.zcmb) * model.MC_DA(self.zcmb))+25
+        mu_th[self.shdata]=self.cepheid_distance[self.shdata]
+        delta_mu=mu_th+Mb-self.m_obs
+        return np.dot(delta_mu,np.dot(self.incov,delta_mu))
+    
+    def chi2_comoving(self,dc,Mb):
+        mu_th=5 * np.log10((1 + self.zhel) * dc(self.zcmb))+25
+        mu_th[self.shdata]=self.cepheid_distance[self.shdata]
+        delta_mu=mu_th+Mb-self.m_obs
+        return np.dot(delta_mu,np.dot(self.incov,delta_mu))
+                           
 
 
 if __name__ == "__main__":

@@ -117,6 +117,19 @@ class LCDM(object):
             dis=self.D_H*np.sinh(np.sqrt(self.OmK)*quad(self.invhub,0,z1)[0])/np.sqrt(self.OmK)
         return dis
     
+    def differential_comoving_volume(self,z):
+        """
+        Differential comoving volume per redshift per steradian at each
+            input redshift in units of Mpc^3
+        """
+        return self.co_dis_z(z)**2*self.D_H/self.hubz(z)
+    
+    def dVc_by_dz(self,z):
+        """
+        Differential comoving volume at redshift z in units of Mpc^3
+        """
+        return 4*np.pi*self.differential_comoving_volume(z)
+    
     def d_z(self,z1):
         """
         Line of sight comoving distance as a function of redshift z
@@ -315,9 +328,25 @@ class LCDM(object):
         return quad(xzint,0,z)[0]
     
     def Xz_MC(self,z):
-        return splev(z,splrep(self.zz,self.Xz(self.zz)))
+        step=0.1
+        zz=np.arange(0,z.max()+step,step)
+        return splev(z,splrep(zz,self.Xz(zz)))
     
     def DM(self,z):
+        '''
+        DM in unit pc/cm**3
+
+        Parameters
+        ----------
+        z : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        TYPE
+            DESCRIPTION.
+
+        '''
         f_IGM=0.83
         return 3*1e2*self.Ob0h2/self.h*f_IGM*c*(1e3/Mpc/1e6/parsec)/(8*np.pi*m_p*G)*self.Xz_MC(z)
 #=========================================================================================================
@@ -337,17 +366,42 @@ class LCDM(object):
         return 9.78461942321705/self.h
 
 
-    def om_a(self,a):
+    def Omegam_a(self,a):
         """
         density parameter \Omega_{m} for matter as a function of scale factor a
         """
         return self.Om0*a**(-3)/self.huba(a)**2.
+    
+    def Omegar_a(self,a):
+        """
+        density parameter \Omega_{m} for radiation as a function of scale factor a
+        """
+        return self.Omega_r*a**(-4)/self.huba(a)**2.
 
-    def om_z(self,z):
+    def Omegam_z(self,z):
         """
-        density parameter \Omega_{m} for matter as a function of z
+        density parameter \Omega_{r} for matter as a function of z
         """
-        return self.om_a(1./(1.+z))
+        return self.Omegar_a(1./(1.+z))
+    
+    def Omegar_z(self,z):
+        """
+        density parameter \Omega_{m} for radiation as a function of z
+        """
+        return self.Omegam_z(1./(1.+z))
+    
+    def OmegaDE_a(self,a):
+        '''
+        density parameter \Omega_{DE} for dark energy as a function of a
+        '''
+        return 1-self.Omegar_a(a)-self.Omegam_a(a)
+    
+    def OmegaDE_z(self,z):
+        '''
+        density parameter \Omega_{DE} for dark energy as a function of z
+        '''
+        return self.OmegaDE_a(1./(1.+z))
+    
 		
     def Om_diag(self,z):
         """
@@ -683,7 +737,61 @@ class ILCDM1(IwCDM1):
             self.Omega_r=0.0
         else:
             self.Omega_r = self.Omega_r0
+
+
+class IwCDM2(LCDM):
+    '''
+    A Class to calculate cosmological observables for the interaction dark energy model: IwCDM1
+    for which the interaction term is
+    Q=3*beta*H*rho_c
     
+    MNRAS 463, 952–956 (2016)
+    '''
+    def __init__(self,Om0,beta,w,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.beta = np.float64(beta)
+        self.w = np.float64(w)
+        self.h = np.float64(h)
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
+    
+    def hubz(self,z):
+        Ob0=self.Ob0h2/self.h**2
+        Oc0=self.Om0-Ob0
+        Omde=1-self.Om0-self.Omega_r
+        return np.sqrt(Omde*(1+z)**(3*(1+self.w))+Ob0*(1+z)**3+self.Omega_r*(1+z)**4+
+                       Oc0*(self.beta/(self.w+self.beta)*np.power(1+z,3*(1+self.w))+self.w/(self.w+self.beta)*np.power(1+z,3*(1-self.beta))))
+    
+    def wz(self,z):
+        return z-z+self.w
+
+class ILCDM2(IwCDM2):
+    '''
+    A Class to calculate cosmological observables for the interaction dark energy model: ILCDM1
+    for which the interaction term is
+    Q=3*beta*H*rho_c
+    
+    MNRAS 463, 952–956 (2016)
+    '''
+    def __init__(self,Om0,beta,w=-1,h=0.674,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.beta = np.float64(beta)
+        self.w = np.float64(w)
+        self.h = np.float64(h)
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
 
     
 class Geos(LCDM):
@@ -1391,3 +1499,43 @@ class fR_power2(LCDM):
         H2u=3*f-R*fR
         H2d=6*fR*(1-1.5*fRR*(R*fR-2*f)/fR/(R*fRR-fR))**2
         return H2u/H2d
+
+
+class LLCDM(LCDM):
+    def __init__(self,H0,Om0,OmK=0.0,Omr0=None,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.h = np.float64(H0)/1e2
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        if Omr0:
+            self.Omega_r=0.0
+        else:
+            self.Omega_r = self.Omega_r0
+
+class wwCDM(wCDM):
+    def __init__(self,H0,Om0,w,OmK=0.0,Ob0h2=0.02225,ns=0.96,sigma_8 = 0.8):
+        self.Om0 = np.float64(Om0)
+        self.w = np.float64(w)
+        self.h = np.float64(H0)/1e2
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.sigma_8 = np.float64(sigma_8)
+        self.Omega_r = self.Omega_r0
+
+
+class cCPL(CPL):
+
+    def __init__(self,H0,Om0,w0,wa,OmK=0.0,Ob0h2=0.02225,ns=0.96,sigma_8=0.8):
+        self.Om0 = np.float64(Om0)
+        self.w0 = np.float64(w0)
+        self.wa = np.float64(wa)
+        self.OmK = OmK
+        self.Ob0h2 = np.float64(Ob0h2)
+        self.ns = np.float64(ns)
+        self.h = np.float64(H0)/1e2
+        self.sigma_8 = np.float64(sigma_8)
+        self.Omega_r = self.Omega_r0
+
